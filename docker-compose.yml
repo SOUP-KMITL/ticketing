@@ -1,44 +1,46 @@
 version: '3.3'
 services: 
   user-service:
-    image: stack-01:5000/user-service
-    build: ./user-service
+    # image: stack-01:5000/user-service
+    build: ./user
 
-  # meter-service:
-  #   image: stack-01:5000/meter-service
-  #   build: ./meter
-  # collection-service:
-  #   image: stack-01:5000/collection-service
-  #   build: ./collection
-  #   volumes:
-  #     - '/Users/athiyutratchatajaroenchaikul/Desktop/key:/key'
-  # access-control-service:
-  #   image: stack-01:5000/access-control-service
-  #   build: ./access-control
-  # ticket-service:
-  #   image: stack-01:5000/ticket-service
-  #   build: ./ticket
-  #   volumes:
-  #     - '/Users/athiyutratchatajaroenchaikul/Desktop/key:/key'
-  # neo4j:
-  #   image: neo4j
-  #   environment:
-  #     - NEO4J_AUTH=none
-  #   ports:
-  #     - "7474:7474"
-  #     - "7687:7687"
-  # mongo:
-  #   image: mongo
+  meter-service:
+    # image: stack-01:5000/meter-service
+    build: ./meter
+  collection-service:
+    # image: stack-01:5000/collection-service
+    build: ./collection
+    volumes:
+      - '/Users/athiyutratchatajaroenchaikul/Desktop/key:/key'
+  access-control-service:
+    # image: stack-01:5000/access-control-service
+    build: ./access-control
+  ticket-service:
+    image: stack-01:5000/ticket-service
+    build: ./ticket
+    volumes:
+      - '/Users/athiyutratchatajaroenchaikul/Desktop/key:/key'
+  neo4j:
+    image: neo4j
+    environment:
+      - NEO4J_AUTH=none
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+  mongo:
+    image: mongo
   kong-database:
     image: 'postgres:9.4'
     environment:
       - POSTGRES_USER=kong
       - POSTGRES_DB=kong
     volumes:
-      - '/pool-data/kong-data:/var/lib/postgresql/data'
+      # - '/pool-data/kong-data:/var/lib/postgresql/data'
+      - '/Users/athiyutratchatajaroenchaikul/Desktop/ticketing/kong-data:/var/lib/postgresql/data'
   kong:
-    image: stack-01:5000/kong
-    build: ./kong
+    # image: stack-01:5000/kong
+    image: kong
+    # build: ./kong
     privileged: true
     tty: true
     depends_on:
@@ -49,22 +51,22 @@ services:
     environment:
       - KONG_DATABASE=postgres
       - KONG_PG_HOST=kong-database
-    volumes: 
-      - '/pool-data/letsencrypt/etc/letsencrypt:/etc/letsencrypt'
+    # volumes: 
+    #   - '/pool-data/letsencrypt/etc/letsencrypt:/etc/letsencrypt'
   kong-dashboard:
     image: 'pgbi/kong-dashboard:v2'
     depends_on:
       - kong
     ports:
       - '8080:8080'
-  swagger:
-    image: stack-01:5000/swagger
-    build: ./swagger
-    environment:
-      - SWAGGER_JSON=/doc/data-exchange/data-exchage-swagger.json
-networks: 
-  default:
-    external:
-      name: service_network
+#   swagger:
+#     image: stack-01:5000/swagger
+#     build: ./swagger
+#     environment:
+#       - SWAGGER_JSON=/doc/data-exchange/data-exchage-swagger.json
+# networks: 
+#   default:
+#     external:
+#       name: service_network
     
     

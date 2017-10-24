@@ -12,12 +12,11 @@ public class TicketModel {
 	private String role;
 	private Date expire;
 	private Date timstamp;
-	private double credit;
 	public TicketModel() {
 
 	}
 
-	public TicketModel(String userId, String collectionId, String role,double credit) {
+	public TicketModel(String userId, String collectionId, String role) {
 		Date date = new Date();
 		Calendar c = Calendar.getInstance();
 		c.setTime(date);
@@ -28,7 +27,6 @@ public class TicketModel {
 		this.role = role;
 		this.expire = c.getTime();
 		this.timstamp = date;
-		this.credit = credit;
 	}
 
 	public String getTicketId() {
@@ -79,12 +77,5 @@ public class TicketModel {
 		this.expire = expire;
 	}
 
-	public double getCredit() {
-		return credit;
-	}
-
-	public void setCredit(double credit) {
-		this.credit = credit;
-	}
 
 }

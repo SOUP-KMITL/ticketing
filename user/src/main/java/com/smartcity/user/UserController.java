@@ -80,18 +80,6 @@ public class UserController {
 		return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 	}
 
-	@PutMapping("/{userName}/credit")
-	public ResponseEntity<Object> chageCredit(@PathVariable String userName, double credit) {
-		try {
-			UserModel user = repository.findByuserName(userName).get(0);
-			user.setCredit(user.getCredit() + credit);
-			repository.save(user);
-			return new ResponseEntity<>(HttpStatus.OK);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-	}
 
 	private boolean isValid(String basicAuth, UserModel user) {
 		String[] userPass = new String(Base64.getDecoder().decode(basicAuth.split(" ")[1])).split(":");

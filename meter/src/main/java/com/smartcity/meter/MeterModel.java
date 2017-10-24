@@ -8,21 +8,21 @@ public class MeterModel {
 	private String meterId;
 	private String userId;
 	private String collectionId;
-	private String type;
-	private boolean isPaid;
-	private double credit;
 	private Date timestamp;
+	private String type;
+	private int record;
+	private int size;
 
 	public MeterModel() {
 	}
 
-	public MeterModel(String userId, String collectionId,String type, double credit) {
+	public MeterModel(String userId, String collectionId,String type ,int record, int size) {
 		this.setMeterId(DigestUtils.sha256Hex(userId + collectionId + (new Date().getTime())));
 		this.setUserId(userId);
 		this.setCollectionId(collectionId);
 		this.setType(type);
-		this.setPaid(false);
-		this.setCredit(credit);
+		this.setRecord(record);
+		this.setSize(size);
 		this.setTimestamp(new Date());
 	}
 
@@ -42,22 +42,6 @@ public class MeterModel {
 		this.collectionId = collectionId;
 	}
 
-	public boolean isPaid() {
-		return isPaid;
-	}
-
-	public void setPaid(boolean isPaid) {
-		this.isPaid = isPaid;
-	}
-
-	public double getCredit() {
-		return credit;
-	}
-
-	public void setCredit(double credit) {
-		this.credit = credit;
-	}
-
 	public Date getTimestamp() {
 		return timestamp;
 	}
@@ -74,6 +58,22 @@ public class MeterModel {
 		this.meterId = meterId;
 	}
 
+	public int getRecord() {
+		return record;
+	}
+
+	public void setRecord(int record) {
+		this.record = record;
+	}
+
+	public int getSize() {
+		return size;
+	}
+
+	public void setSize(int size) {
+		this.size = size;
+	}
+
 	public String getType() {
 		return type;
 	}
@@ -81,5 +81,5 @@ public class MeterModel {
 	public void setType(String type) {
 		this.type = type;
 	}
-
+	
 }

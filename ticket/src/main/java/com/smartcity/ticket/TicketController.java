@@ -42,8 +42,7 @@ public class TicketController {
 				if(role.equals("READ") && !(boolean)((JSONObject)json.get(0)).get("open")) {
 					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 				}
-				double credit = (double) ((JSONObject) json.get(0)).get("credit");
-				String ticketString = mapper.writeValueAsString(new TicketModel(userId, collectionId, role, credit));
+				String ticketString = mapper.writeValueAsString(new TicketModel(userId, collectionId, role));
 				return new ResponseEntity<Object>(
 						Base64.getUrlEncoder().encodeToString(
 								security.encrypt(ticketString.getBytes("utf-8")).toJSONString().getBytes("utf-8")),

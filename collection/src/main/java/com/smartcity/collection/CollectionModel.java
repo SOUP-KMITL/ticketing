@@ -14,7 +14,6 @@ public class CollectionModel {
 	
 	private String collectionName;
 	private String endPoint;
-	private double credit;
 	private ArrayList<String> tags;
 	private JSONObject example;
 	private Date timestamp;
@@ -23,7 +22,7 @@ public class CollectionModel {
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id,String collectionName, String endPoint, double credit, ArrayList<String> tags,
+	public CollectionModel(String id,String collectionName, String endPoint, ArrayList<String> tags,
 			JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
@@ -32,7 +31,6 @@ public class CollectionModel {
 		}
 		this.isOpen = isOpen;
 		this.endPoint = endPoint;
-		this.credit = credit;
 		this.tags = tags;
 		this.example = example;
 		this.setTimestamp(new Date());
@@ -60,14 +58,6 @@ public class CollectionModel {
 
 	public void setEndPoint(String endPoint) {
 		this.endPoint = endPoint;
-	}
-
-	public double getCredit() {
-		return credit;
-	}
-
-	public void setCredit(int credit) {
-		this.credit = credit;
 	}
 
 	public ArrayList<String> getTag() {

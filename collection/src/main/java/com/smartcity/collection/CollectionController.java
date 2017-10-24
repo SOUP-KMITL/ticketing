@@ -69,11 +69,8 @@ public class CollectionController {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
-					(String) json.get("endPoint"), (double) json.get("credit"), (ArrayList<String>) json.get("tag"),
+					(String) json.get("endPoint"), (ArrayList<String>) json.get("tag"),
 					example, (boolean) json.get("isOpen"));
-			if (!collection.isOpen()) {
-				collection.setCredit(0);
-			}
 			mongoTemplate.insert(collection, "MetaData");
 			mongoTemplate.createCollection(collection.getCollectionId());
 			JSONObject body = new JSONObject();
@@ -124,11 +121,11 @@ public class CollectionController {
 		if (jsonTicket != null) {
 			if (isValidTicket(collectionId, jsonTicket) && mongoTemplate.collectionExists(collectionId)) {
 				System.out.println(jsonTicket);
-				sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",
-						(double) jsonTicket.get("credit"));
 				Query q = new Query();
 				q.fields().exclude("_id");
-				return new ResponseEntity<>(mongoTemplate.find(q, JSONObject.class, collectionId), HttpStatus.OK);
+				List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
+				sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",res.size(),res.toString().length());
+				return new ResponseEntity<>(res, HttpStatus.OK);
 			}
 			return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
 		}
@@ -142,8 +139,7 @@ public class CollectionController {
 		if (isValidTicket(collectionId, jsonTicket)
 				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))
 				&& mongoTemplate.collectionExists(collectionId)) {
-			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write",
-					(double) jsonTicket.get("credit"));
+			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write",1,data.toString().length());
 			mongoTemplate.save(data, collectionId);
 			return new ResponseEntity<>(HttpStatus.OK);
 		}
@@ -151,12 +147,13 @@ public class CollectionController {
 	}
 
 	@SuppressWarnings("unchecked")
-	private HttpResponse<String> sendToMeter(String userId, String CollectionId, String type, double credit) {
+	private HttpResponse<String> sendToMeter(String userId, String CollectionId, String type,int record, int size) {
 		JSONObject body = new JSONObject();
 		body.put("userId", userId);
 		body.put("collectionId", CollectionId);
 		body.put("type", type);
-		body.put("credit", credit);
+		body.put("record", record);
+		body.put("size", size);
 		try {
 			return Unirest.post("http://meter-service:8080/api/v1/meters/").header("Content-Type", "application/json")
 					.body(body.toJSONString()).asString();
