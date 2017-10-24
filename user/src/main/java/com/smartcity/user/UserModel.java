@@ -1,0 +1,108 @@
+package com.smartcity.user;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.google.common.hash.Hashing;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+
+public class UserModel {
+	@Id
+	@Indexed
+	private String userId;
+	
+	private String userName;
+	private String password;
+	private String email;
+	private String accessToken;
+	private Date timestamp;
+	private double credit;
+
+	public UserModel() {
+		this.setUserId(userName);
+		this.setTimestamp(new Date());
+		this.setCredit(0);
+	}
+
+	public UserModel(String userName, String password, String email) {
+		this.setUserId(userName);
+		this.setUserName(userName);
+		this.setPassword(password);
+		this.setAccessToken(null);
+		this.setEmail(email);
+		this.setTimestamp(new Date());
+		this.setCredit(0);
+	}
+
+	public String generateAccessToken() {
+		String str = this.getUserName();
+		str += new Date().getTime();
+		String sha256hex = Hashing.sha256().hashString(str, StandardCharsets.UTF_8).toString();
+		return sha256hex;
+	}
+
+	public String getPassword() {
+		return password;
+	}
+
+	public void setPassword(String password) {
+		String sha1hex = Hashing.sha1().hashString(password, StandardCharsets.UTF_8).toString();
+		this.password = sha1hex;
+	}
+
+	public String getUserName() {
+		return userName;
+	}
+
+	public void setUserName(String userName) {
+		this.userName = userName;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	public String getAccessToken() {
+		return accessToken;
+	}
+
+	public void setAccessToken(String accessToken) {
+		this.accessToken = accessToken;
+	}
+
+	public Date getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(Date timestamp) {
+		if(timestamp == null) {
+			timestamp = new Date();
+		}
+		this.timestamp = timestamp;
+	}
+
+	public String getUserId() {
+		return userId;
+	}
+
+	public void setUserId(String userName) {
+		this.userId = Hashing.sha256().hashString(userName + new Date().getTime(), StandardCharsets.UTF_8).toString();
+	}
+
+	public double getCredit() {
+		return credit;
+	}
+
+	public void setCredit(double f) {
+		this.credit = f;
+	}
+}
