@@ -1,6 +1,5 @@
 package com.smartcity.collection;
 
-import java.util.ArrayList;
 import java.util.Date;
 
 import org.json.simple.JSONObject;
@@ -14,7 +13,7 @@ public class CollectionModel {
 	
 	private String collectionName;
 	private String endPoint;
-	private ArrayList<String> tags;
+	private String type;
 	private JSONObject example;
 	private Date timestamp;
 	private boolean isOpen;
@@ -22,7 +21,7 @@ public class CollectionModel {
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id,String collectionName, String endPoint, ArrayList<String> tags,
+	public CollectionModel(String id,String collectionName, String endPoint, String type,
 			JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
@@ -31,7 +30,7 @@ public class CollectionModel {
 		}
 		this.isOpen = isOpen;
 		this.endPoint = endPoint;
-		this.tags = tags;
+		this.type = type;
 		this.example = example;
 		this.setTimestamp(new Date());
 	}
@@ -60,12 +59,14 @@ public class CollectionModel {
 		this.endPoint = endPoint;
 	}
 
-	public ArrayList<String> getTag() {
-		return tags;
+	
+
+	public String getType() {
+		return type;
 	}
 
-	public void setTag(ArrayList<String> tags) {
-		this.tags = tags;
+	public void setType(String type) {
+		this.type = type;
 	}
 
 	public JSONObject getExample() {

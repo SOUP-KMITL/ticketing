@@ -1,6 +1,5 @@
 package com.smartcity.collection;
 
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -37,11 +36,20 @@ public class CollectionController {
 			new SimpleMongoDbFactory(new MongoClient("mongo"), "CollectionModel"));
 
 	@GetMapping("/")
-	public List<CollectionModel> getMeta(String collectionName) {
+	public List<CollectionModel> getMeta(String collectionName, String collectionId, String type, Boolean open) {
 		Query query = new Query();
 		Criteria criteria = new Criteria();
 		if (collectionName != null) {
 			criteria.andOperator(Criteria.where("collectionName").is(collectionName));
+		}
+		if (collectionId != null) {
+			criteria.andOperator(Criteria.where("collectionId").is(collectionId));
+		}
+		if (type != null) {
+			criteria.andOperator(Criteria.where("type").is(type));
+		}
+		if (open != null) {
+			criteria.andOperator(Criteria.where("open").is(open));
 		}
 		query.addCriteria(criteria);
 		return mongoTemplate.find(query, CollectionModel.class, "MetaData");
@@ -55,7 +63,7 @@ public class CollectionController {
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	@PostMapping("")
-	public ResponseEntity createCollection(@RequestHeader(value = "Authorization") String userToken,
+	public ResponseEntity<Object> createCollection(@RequestHeader(value = "Authorization") String userToken,
 			@RequestBody JSONObject json) {
 		try {
 			HttpResponse<JsonNode> res = Unirest.get("http://user-service:8080/api/v1/users")
@@ -69,8 +77,7 @@ public class CollectionController {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
-					(String) json.get("endPoint"), (ArrayList<String>) json.get("tag"),
-					example, (boolean) json.get("isOpen"));
+					(String) json.get("endPoint"), (String) json.get("type"), example, (boolean) json.get("isOpen"));
 			mongoTemplate.insert(collection, "MetaData");
 			mongoTemplate.createCollection(collection.getCollectionId());
 			JSONObject body = new JSONObject();
@@ -80,7 +87,7 @@ public class CollectionController {
 			body.put("isOpen", collection.isOpen());
 			Unirest.post("http://access-control-service:8080/api/v1/accesscontrol/collections")
 					.header("Content-Type", "application/json").body(body.toJSONString()).asString();
-			return new ResponseEntity<>(HttpStatus.CREATED);
+			return new ResponseEntity<Object>(collection.getCollectionId(), HttpStatus.CREATED);
 		} catch (UnirestException e1) {
 			e1.printStackTrace();
 		} catch (JSONException e) {
@@ -124,7 +131,8 @@ public class CollectionController {
 				Query q = new Query();
 				q.fields().exclude("_id");
 				List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
-				sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",res.size(),res.toString().length());
+				sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",
+						res.size(), res.toString().length());
 				return new ResponseEntity<>(res, HttpStatus.OK);
 			}
 			return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
@@ -139,7 +147,8 @@ public class CollectionController {
 		if (isValidTicket(collectionId, jsonTicket)
 				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))
 				&& mongoTemplate.collectionExists(collectionId)) {
-			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write",1,data.toString().length());
+			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write", 1,
+					data.toString().length());
 			mongoTemplate.save(data, collectionId);
 			return new ResponseEntity<>(HttpStatus.OK);
 		}
@@ -147,7 +156,7 @@ public class CollectionController {
 	}
 
 	@SuppressWarnings("unchecked")
-	private HttpResponse<String> sendToMeter(String userId, String CollectionId, String type,int record, int size) {
+	private HttpResponse<String> sendToMeter(String userId, String CollectionId, String type, int record, int size) {
 		JSONObject body = new JSONObject();
 		body.put("userId", userId);
 		body.put("collectionId", CollectionId);

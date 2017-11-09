@@ -32,6 +32,9 @@ public class UserNode {
 		}
 		this.roles.add(roles);
 	}
+	public void deleteRole(Role role) {
+		this.roles.remove(role);
+	}
 
 	@Relationship(type = "Role")
 	private List<Role> roles;
