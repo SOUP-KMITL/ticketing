@@ -12,14 +12,16 @@ public class UserNode {
 	@GraphId
 	Long id;
 	String userId;
+	String userName;
 
 	@SuppressWarnings("unused")
 	private UserNode() {
 
 	}
 
-	public UserNode(String userId) {
+	public UserNode(String userId, String userName) {
 		this.userId = userId;
+		this.userName = userName;
 	}
 
 	public List<Role> getRoles() {
@@ -27,11 +29,12 @@ public class UserNode {
 	}
 
 	public void addRole(Role roles) {
-		if(this.roles == null) {
+		if (this.roles == null) {
 			this.roles = new ArrayList<>();
 		}
 		this.roles.add(roles);
 	}
+
 	public void deleteRole(Role role) {
 		this.roles.remove(role);
 	}

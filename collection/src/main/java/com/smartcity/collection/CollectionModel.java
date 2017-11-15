@@ -10,10 +10,11 @@ public class CollectionModel {
 	@Id
 	@Indexed
 	private String collectionId;
-	
+
 	private String collectionName;
 	private String endPoint;
 	private String type;
+	private String owner;
 	private JSONObject example;
 	private Date timestamp;
 	private boolean isOpen;
@@ -21,7 +22,7 @@ public class CollectionModel {
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id,String collectionName, String endPoint, String type,
+	public CollectionModel(String id, String collectionName, String endPoint, String type, String owner,
 			JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
@@ -31,6 +32,7 @@ public class CollectionModel {
 		this.isOpen = isOpen;
 		this.endPoint = endPoint;
 		this.type = type;
+		this.owner = owner;
 		this.example = example;
 		this.setTimestamp(new Date());
 	}
@@ -58,8 +60,6 @@ public class CollectionModel {
 	public void setEndPoint(String endPoint) {
 		this.endPoint = endPoint;
 	}
-
-	
 
 	public String getType() {
 		return type;
@@ -91,5 +91,13 @@ public class CollectionModel {
 
 	public void setOpen(boolean isOpen) {
 		this.isOpen = isOpen;
+	}
+
+	public String getOwner() {
+		return owner;
+	}
+
+	public void setOwner(String owner) {
+		this.owner = owner;
 	}
 }

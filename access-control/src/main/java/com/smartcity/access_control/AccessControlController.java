@@ -1,7 +1,5 @@
 package com.smartcity.access_control;
 
-import java.io.IOException;
-
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -18,9 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
@@ -65,7 +61,7 @@ public class AccessControlController {
 
 	@PostMapping("/users")
 	public ResponseEntity<Object> createUserNode(@RequestBody JSONObject json) {
-		UserNode user = new UserNode((String) json.get("userId"));
+		UserNode user = new UserNode((String) json.get("userId"), (String) json.get("userName"));
 		Iterable<CollectionNode> collections = collectionRepo.findAll();
 		if (collections != null) {
 			collections.forEach(c -> user.addRole(new Role(READ, user, c)));
@@ -114,28 +110,21 @@ public class AccessControlController {
 				return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 			}
 			UserNode targetUserNode = userRepo.findByUserId(targetUserId);
-			if (!role.toUpperCase().contains(OWNER + CONTRIBUTOR + READ)) {
+			if (!(OWNER + CONTRIBUTOR + READ).contains(role.toUpperCase())) {
 				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 			}
 			Role role2 = userRepo.findRole(targetUserId, collectionId);
 			if (role2 != null) {
 				targetUserNode.deleteRole(role2);
-				role2.setRole(role);
+				role2.setRole(role.toUpperCase());
 				targetUserNode.addRole(role2);
-//				role2.setRole(role);
-//				targetUserNode.getRoles().forEach(r -> {
-//					if (r.id == role2.id) {
-//						r = role2;
-//					}
-//				});
-				
 			} else {
 				CollectionNode collectionNode = collectionRepo.findByCollectionId(collectionId);
 				Role r = new Role(role, targetUserNode, collectionNode);
 				targetUserNode.addRole(r);
 			}
 			userRepo.save(targetUserNode);
-			new ResponseEntity<>(HttpStatus.OK);
+			return new ResponseEntity<>(HttpStatus.OK);
 
 		}
 		return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
@@ -171,16 +160,16 @@ public class AccessControlController {
 			e.printStackTrace();
 		}
 		JSONObject user = null;
+		JSONParser parser = new JSONParser();
+		JSONArray array = null;
 		try {
-			user = new ObjectMapper().readValue(res.getBody(), JSONObject.class);
-		} catch (JsonParseException e) {
-			e.printStackTrace();
-		} catch (JsonMappingException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
+			array = (JSONArray) parser.parse(res.getBody());
+		} catch (ParseException e) {
 			e.printStackTrace();
 		}
-		return user;
+		user = (JSONObject) array.get(0);
+		System.out.println(user);
+		return (JSONObject) user;
 	}
 
 }

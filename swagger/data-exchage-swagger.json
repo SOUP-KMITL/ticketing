@@ -16,6 +16,9 @@
     },
     {
       "name": "tickets"
+    },
+    {
+      "name": "access control"
     }
   ],
   "schemes": [
@@ -119,10 +122,28 @@
         "summary": "Get all collection Metadata",
         "parameters": [
           {
+            "name": "collectionId",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
             "name": "collectionName",
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "open",
+            "in": "query",
+            "required": false,
+            "type": "boolean"
           }
         ],
         "responses": {
@@ -353,7 +374,7 @@
         "summary": "Change a user role",
         "description": "Change a user role",
         "tags": [
-          "accesscontrol"
+          "access control"
         ],
         "parameters": [
           {
@@ -427,14 +448,8 @@
           "type": "string",
           "default": "local"
         },
-        "credit": {
-          "type": "number"
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "type": {
+          "type": "string"
         },
         "example": {
           "type": "object"
@@ -456,14 +471,8 @@
         "endPoint": {
           "type": "string"
         },
-        "credit": {
-          "type": "number"
-        },
-        "tag": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "type": {
+          "type": "string"
         },
         "example": {
           "type": "object"

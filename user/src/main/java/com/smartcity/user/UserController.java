@@ -42,6 +42,7 @@ public class UserController {
 			repository.save(user);
 			JSONObject json1 = new JSONObject();
 			json1.put("userId", user.getUserId());
+			json1.put("userName", user.getUserName());
 			try {
 				Unirest.post("http://access-control-service:8080/api/v1/accesscontrol/users")
 						.header("Content-Type", "application/json").body(json1.toJSONString()).asString();
@@ -62,14 +63,21 @@ public class UserController {
 	@PutMapping("/{userName}/token")
 	public ResponseEntity<Object> generateToken(@PathVariable(value = "userName") String userName,
 			@RequestHeader String authorization) {
-		UserModel user = repository.findByuserName(userName).get(0);
+		UserModel user = null;
+		try {
+			user = repository.findByuserName(userName).get(0);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
 		if (isValid(authorization, user)) {
 			user.setAccessToken(user.generateAccessToken());
 			repository.save(user);
-			return new ResponseEntity<Object>(user.getAccessToken(),HttpStatus.OK);
+			return new ResponseEntity<Object>(user.getAccessToken(), HttpStatus.OK);
 		}
 		return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 	}
+
 	@GetMapping("/{userName}/token")
 	public ResponseEntity<Object> getToken(@PathVariable(value = "userName") String userName,
 			@RequestHeader String authorization) {
@@ -79,7 +87,6 @@ public class UserController {
 		}
 		return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 	}
-
 
 	private boolean isValid(String basicAuth, UserModel user) {
 		String[] userPass = new String(Base64.getDecoder().decode(basicAuth.split(" ")[1])).split(":");

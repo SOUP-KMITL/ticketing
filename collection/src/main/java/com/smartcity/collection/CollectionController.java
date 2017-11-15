@@ -69,6 +69,7 @@ public class CollectionController {
 			HttpResponse<JsonNode> res = Unirest.get("http://user-service:8080/api/v1/users")
 					.queryString("token", userToken).asJson();
 			String userId = (String) res.getBody().getArray().getJSONObject(0).get("userId");
+			String userName = (String) res.getBody().getArray().getJSONObject(0).get("userName");
 			JSONObject example = new JSONObject((Map) json.get("example"));
 			String collectionId = DigestUtils.sha256Hex((String) json.get("collectionName") + userId);
 			if (!mongoTemplate
@@ -77,7 +78,8 @@ public class CollectionController {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
-					(String) json.get("endPoint"), (String) json.get("type"), example, (boolean) json.get("isOpen"));
+					(String) json.get("endPoint"), (String) json.get("type"), userName, example,
+					(boolean) json.get("isOpen"));
 			mongoTemplate.insert(collection, "MetaData");
 			mongoTemplate.createCollection(collection.getCollectionId());
 			JSONObject body = new JSONObject();
