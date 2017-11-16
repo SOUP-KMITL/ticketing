@@ -15,9 +15,8 @@ public class UserModel {
 	@Id
 	@Indexed
 	private String userId;
-	
 	private String userName;
-	private String password;
+	private String password; 
 	private String email;
 	private String accessToken;
 	private Date timestamp;

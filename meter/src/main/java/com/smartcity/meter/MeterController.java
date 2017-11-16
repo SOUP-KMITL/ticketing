@@ -3,6 +3,7 @@ package com.smartcity.meter;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -24,7 +25,8 @@ public class MeterController {
 			new SimpleMongoDbFactory(new MongoClient("mongo"), "MeterModel"));
 
 	@GetMapping("")
-	public @ResponseBody List<MeterModel> getAll(String userId, String collectionId) {
+	public @ResponseBody List<MeterModel> getAll(String userId, String collectionId, String[] collectionIds,
+			Long timestamp) {
 		Query query = new Query();
 		Criteria criteria = new Criteria();
 		if (userId != null) {
@@ -33,7 +35,13 @@ public class MeterController {
 		if (collectionId != null) {
 			criteria.andOperator(Criteria.where("collectionId").is(collectionId));
 		}
-		query.addCriteria(criteria);
+		if (timestamp != null) {
+			criteria.andOperator(Criteria.where("timestamp").gt(timestamp));
+		}
+		if (collectionIds != null) {
+			criteria.andOperator(Criteria.where("collectionId").in((Object[])collectionIds));
+		}
+		query.addCriteria(criteria).with(new Sort(Sort.Direction.DESC, "timestamp"));
 		return mongoTemplate.find(query, MeterModel.class);
 
 	}
@@ -41,8 +49,8 @@ public class MeterController {
 	@SuppressWarnings("rawtypes")
 	@PostMapping("")
 	public ResponseEntity newMeter(@RequestBody MeterModel meter) {
-		mongoTemplate
-				.insert(new MeterModel(meter.getUserId(), meter.getCollectionId(),meter.getType() ,meter.getRecord(), meter.getSize()));
+		mongoTemplate.insert(new MeterModel(meter.getUserId(), meter.getCollectionId(), meter.isOpen(), meter.getType(),
+				meter.getRecord(), meter.getSize()));
 		return new ResponseEntity(HttpStatus.CREATED);
 	}
 

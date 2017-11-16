@@ -8,6 +8,7 @@ public class MeterModel {
 	private String meterId;
 	private String userId;
 	private String collectionId;
+	private boolean isOpen;
 	private Date timestamp;
 	private String type;
 	private int record;
@@ -16,10 +17,11 @@ public class MeterModel {
 	public MeterModel() {
 	}
 
-	public MeterModel(String userId, String collectionId,String type ,int record, int size) {
+	public MeterModel(String userId, String collectionId,boolean isOpen,String type ,int record, int size) {
 		this.setMeterId(DigestUtils.sha256Hex(userId + collectionId + (new Date().getTime())));
 		this.setUserId(userId);
 		this.setCollectionId(collectionId);
+		this.setOpen(isOpen);
 		this.setType(type);
 		this.setRecord(record);
 		this.setSize(size);
@@ -80,6 +82,14 @@ public class MeterModel {
 
 	public void setType(String type) {
 		this.type = type;
+	}
+
+	public boolean isOpen() {
+		return isOpen;
+	}
+
+	public void setOpen(boolean isOpen) {
+		this.isOpen = isOpen;
 	}
 	
 }

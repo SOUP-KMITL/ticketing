@@ -28,11 +28,38 @@ public class UserController {
 	private UserModelRepository repository;
 
 	@GetMapping("/")
-	public @ResponseBody List<UserModel> getAllUser(String token) {
+	public @ResponseBody List<UserModel> getAllUser(String token, String userId) {
 		if (token != null) {
 			return repository.findByAccessToken(token);
 		}
+		if (userId != null) {
+			return repository.findByUserId(userId);
+		}
 		return repository.findAll();
+	}
+
+	@GetMapping("/login")
+	public ResponseEntity<UserModel> login(String basicAuth, String token) {
+		if(basicAuth!=null) {
+			String[] userPass = new String(Base64.getDecoder().decode(basicAuth.split(" ")[1])).split(":");
+			String pass = Hashing.sha1().hashString(userPass[1], StandardCharsets.UTF_8).toString();
+			List<UserModel>list = repository.findByuserName(userPass[0]);
+			if(list.isEmpty()) {
+				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+			}
+			UserModel user = list.get(0);
+			if (user.getUserName().equals(userPass[0]) && user.getPassword().equals(pass) && user != null) {
+				return new ResponseEntity<UserModel>(user,HttpStatus.OK);
+			}
+		}
+		else if(token!=null) {
+			List<UserModel>list = repository.findByAccessToken(token);
+			if(list.isEmpty()) {
+				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+			}
+			return new ResponseEntity<UserModel>(list.get(0),HttpStatus.OK);
+		}
+		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 	}
 
 	@SuppressWarnings("unchecked")

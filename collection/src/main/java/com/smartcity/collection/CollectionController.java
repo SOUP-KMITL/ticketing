@@ -34,6 +34,7 @@ import com.smartcity.collection.SecurityModel;
 public class CollectionController {
 	private MongoTemplate mongoTemplate = new MongoTemplate(
 			new SimpleMongoDbFactory(new MongoClient("mongo"), "CollectionModel"));
+	private String METADATA = "MetaData";
 
 	@GetMapping("/")
 	public List<CollectionModel> getMeta(String collectionName, String collectionId, String type, Boolean open) {
@@ -52,13 +53,13 @@ public class CollectionController {
 			criteria.andOperator(Criteria.where("open").is(open));
 		}
 		query.addCriteria(criteria);
-		return mongoTemplate.find(query, CollectionModel.class, "MetaData");
+		return mongoTemplate.find(query, CollectionModel.class, METADATA);
 	}
 
 	@GetMapping("/{collectionId}/meta")
 	public List<CollectionModel> getMetaById(@PathVariable String collectionId) {
 		return mongoTemplate.find(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class,
-				"MetaData");
+				METADATA);
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -73,14 +74,14 @@ public class CollectionController {
 			JSONObject example = new JSONObject((Map) json.get("example"));
 			String collectionId = DigestUtils.sha256Hex((String) json.get("collectionName") + userId);
 			if (!mongoTemplate
-					.find(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, "MetaData")
+					.find(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA)
 					.isEmpty()) {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
 					(String) json.get("endPoint"), (String) json.get("type"), userName, example,
 					(boolean) json.get("isOpen"));
-			mongoTemplate.insert(collection, "MetaData");
+			mongoTemplate.insert(collection, METADATA);
 			mongoTemplate.createCollection(collection.getCollectionId());
 			JSONObject body = new JSONObject();
 			body.put("userId", userId);
@@ -112,7 +113,7 @@ public class CollectionController {
 			if (role.equalsIgnoreCase("OWNER")) {
 				mongoTemplate.dropCollection(collectionId);
 				System.out.println(mongoTemplate.findAndRemove(
-						new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, "MetaData"));
+						new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA));
 				Unirest.delete("http://access-control-service:8080/api/v1/accesscontrol/collections/{collectionId}")
 						.routeParam("collectionId", collectionId).asString();
 				return new ResponseEntity<>(HttpStatus.OK);
@@ -158,10 +159,12 @@ public class CollectionController {
 	}
 
 	@SuppressWarnings("unchecked")
-	private HttpResponse<String> sendToMeter(String userId, String CollectionId, String type, int record, int size) {
+	private HttpResponse<String> sendToMeter(String userId, String collectionId, String type, int record, int size) {
 		JSONObject body = new JSONObject();
 		body.put("userId", userId);
-		body.put("collectionId", CollectionId);
+		body.put("collectionId", collectionId);
+		CollectionModel col = mongoTemplate.findOne(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class,METADATA);
+		body.put("open", col.isOpen());
 		body.put("type", type);
 		body.put("record", record);
 		body.put("size", size);
