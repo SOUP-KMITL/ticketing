@@ -3,6 +3,8 @@ services:
   user-service:
     image: worker-01:5000/user-service
     build: ./user
+    networks: 
+      - default
     deploy:
       replicas: 2
       restart_policy:
@@ -11,6 +13,8 @@ services:
   meter-service:
     image: worker-01:5000/meter-service
     build: ./meter
+    networks: 
+      - default
     deploy:
       replicas: 2
       restart_policy:
@@ -19,9 +23,10 @@ services:
   collection-service:
     image: worker-01:5000/collection-service
     build: ./collection
+    networks: 
+      - default
     volumes:
       - '/pool-data/key:/key'
-      # - '/Users/athiyutratchatajaroenchaikul/Desktop/key:/key'
     deploy:
       replicas: 2
       restart_policy:
@@ -30,6 +35,8 @@ services:
   access-control-service:
     image: worker-01:5000/access-control-service
     build: ./access-control
+    networks: 
+      - default
     deploy:
       replicas: 2
       restart_policy:
@@ -38,9 +45,10 @@ services:
   ticket-service:
     image: worker-01:5000/ticket-service
     build: ./ticket
+    networks: 
+      - default
     volumes:
       - '/pool-data/key:/key'
-      # - '/Users/athiyutratchatajaroenchaikul/Desktop/key:/key'
     deploy:
       replicas: 2
       restart_policy:
@@ -51,6 +59,8 @@ services:
     # build: ./kong
     privileged: true
     tty: true
+    networks: 
+      - default
     depends_on:
       - kong-database
     ports:
@@ -70,6 +80,8 @@ services:
     image: 'pgbi/kong-dashboard:v2'
     depends_on:
       - kong
+    networks: 
+      - default 
     ports:
       - '8081:8080'
 
@@ -77,6 +89,8 @@ services:
     image: neo4j
     environment:
       - NEO4J_AUTH=none
+    networks: 
+      - default
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -89,14 +103,20 @@ services:
     environment:
       - POSTGRES_USER=kong
       - POSTGRES_DB=kong
+    networks: 
+      - default
     volumes:
       - '/pool-data/kong-data:/var/lib/postgresql/data'
-      # - '/Users/athiyutratchatajaroenchaikul/Desktop/ticketing/kong-data:/var/lib/postgresql/data'
       
   swagger:
     image: worker-01:5000/swagger
     build: ./swagger
+    networks: 
+      - default
     environment:
       - SWAGGER_JSON=/doc/data-exchange/data-exchage-swagger.json
-    
-    
+
+networks:
+  default:
+    attachable: true
+    driver: store/weaveworks/net-plugin:latest_release

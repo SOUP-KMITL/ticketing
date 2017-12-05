@@ -37,7 +37,8 @@ public class CollectionController {
 	private String METADATA = "MetaData";
 
 	@GetMapping("/")
-	public List<CollectionModel> getMeta(String collectionName, String collectionId, String type, Boolean open) {
+	public List<CollectionModel> getMeta(String collectionName, String collectionId, String type, Boolean open,
+			String owner) {
 		Query query = new Query();
 		Criteria criteria = new Criteria();
 		if (collectionName != null) {
@@ -50,16 +51,21 @@ public class CollectionController {
 			criteria.andOperator(Criteria.where("type").is(type));
 		}
 		if (open != null) {
-			criteria.andOperator(Criteria.where("open").is(open));
+			criteria.andOperator(Criteria.where("isOpen").is(open));
+		}
+		if (owner != null) {
+			criteria.andOperator(Criteria.where("owner").is(owner));
 		}
 		query.addCriteria(criteria);
+		query.fields().exclude("endPoint");
 		return mongoTemplate.find(query, CollectionModel.class, METADATA);
 	}
 
 	@GetMapping("/{collectionId}/meta")
 	public List<CollectionModel> getMetaById(@PathVariable String collectionId) {
-		return mongoTemplate.find(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class,
-				METADATA);
+		Query query = new Query(Criteria.where("collectionId").is(collectionId));
+		query.fields().exclude("endPoint");
+		return mongoTemplate.find(query, CollectionModel.class, METADATA);
 	}
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
@@ -155,7 +161,7 @@ public class CollectionController {
 			mongoTemplate.save(data, collectionId);
 			return new ResponseEntity<>(HttpStatus.OK);
 		}
-		return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
+		return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -163,7 +169,8 @@ public class CollectionController {
 		JSONObject body = new JSONObject();
 		body.put("userId", userId);
 		body.put("collectionId", collectionId);
-		CollectionModel col = mongoTemplate.findOne(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class,METADATA);
+		CollectionModel col = mongoTemplate.findOne(new Query(Criteria.where("collectionId").is(collectionId)),
+				CollectionModel.class, METADATA);
 		body.put("open", col.isOpen());
 		body.put("type", type);
 		body.put("record", record);
@@ -190,7 +197,6 @@ public class CollectionController {
 	@SuppressWarnings("unchecked")
 	private JSONObject decrypt(String data) {
 		SecurityModel security = SecurityModel.getInstance();
-
 		try {
 			String deData = new String(Base64.getUrlDecoder().decode(data));
 			JSONParser parser = new JSONParser();

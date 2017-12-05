@@ -9,7 +9,6 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
-
 import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -39,25 +38,27 @@ public class UserController {
 	}
 
 	@GetMapping("/login")
-	public ResponseEntity<UserModel> login(String basicAuth, String token) {
-		if(basicAuth!=null) {
-			String[] userPass = new String(Base64.getDecoder().decode(basicAuth.split(" ")[1])).split(":");
+	public ResponseEntity<UserModel> login(@RequestHeader(value = "Authorization") String authorization) {
+		if (authorization == null) {
+			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+		}
+		if (authorization.split(" ").length > 0) {
+			String[] userPass = new String(Base64.getDecoder().decode(authorization.split(" ")[1])).split(":");
 			String pass = Hashing.sha1().hashString(userPass[1], StandardCharsets.UTF_8).toString();
-			List<UserModel>list = repository.findByuserName(userPass[0]);
-			if(list.isEmpty()) {
+			List<UserModel> list = repository.findByuserName(userPass[0]);
+			if (list.isEmpty()) {
 				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 			}
 			UserModel user = list.get(0);
 			if (user.getUserName().equals(userPass[0]) && user.getPassword().equals(pass) && user != null) {
-				return new ResponseEntity<UserModel>(user,HttpStatus.OK);
+				return new ResponseEntity<UserModel>(user, HttpStatus.OK);
 			}
-		}
-		else if(token!=null) {
-			List<UserModel>list = repository.findByAccessToken(token);
-			if(list.isEmpty()) {
+		} else {
+			List<UserModel> list = repository.findByAccessToken(authorization);
+			if (list.isEmpty()) {
 				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 			}
-			return new ResponseEntity<UserModel>(list.get(0),HttpStatus.OK);
+			return new ResponseEntity<UserModel>(list.get(0), HttpStatus.OK);
 		}
 		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 	}

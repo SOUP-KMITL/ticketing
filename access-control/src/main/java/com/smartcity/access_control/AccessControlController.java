@@ -31,14 +31,6 @@ public class AccessControlController {
 	private String CONTRIBUTOR = "CONTRIBUTOR";
 	private String READ = "READ";
 
-	@GetMapping("/users")
-	public @ResponseBody Iterable<UserNode> getUser(String userId) {
-		// if (userId != null) {
-		// return userRepo.findByUserId(userId);
-		// }
-		return userRepo.findAll();
-	}
-
 	@GetMapping("/")
 	public @ResponseBody String findRole(String userId, String collectionId) {
 		try {
@@ -57,6 +49,54 @@ public class AccessControlController {
 		role.setRole(type);
 		userRepo.save(user);
 		return new ResponseEntity<>(HttpStatus.CREATED);
+	}
+
+	@PutMapping("/")
+	public ResponseEntity<Object> changeRole(@RequestHeader String authorization, @RequestBody JSONObject jsonBody) {
+		String collectionId;
+		String userName;
+		String role;
+		try {
+			collectionId = (String)jsonBody.get("collectionId");
+			userName = (String)jsonBody.get("userName");
+			role = (String)jsonBody.get("role");
+		}catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+		}
+		JSONObject ownerUser = userAuth(authorization);
+		if (ownerUser != null) {
+			if (!findRole((String) ownerUser.get("userId"), collectionId).contains(OWNER)) {
+				return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+			}
+			String targetUserId = getUserId(userName);
+			if (targetUserId == null) {
+				return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+			}
+			UserNode targetUserNode = userRepo.findByUserId(targetUserId);
+			if (!(OWNER + CONTRIBUTOR + READ).contains(role.toUpperCase())) {
+				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+			}
+			Role role2 = userRepo.findRole(targetUserId, collectionId);
+			if (role2 != null) {
+				targetUserNode.deleteRole(role2);
+				role2.setRole(role.toUpperCase());
+				targetUserNode.addRole(role2);
+			} else {
+				CollectionNode collectionNode = collectionRepo.findByCollectionId(collectionId);
+				Role r = new Role(role, targetUserNode, collectionNode);
+				targetUserNode.addRole(r);
+			}
+			userRepo.save(targetUserNode);
+			return new ResponseEntity<>(HttpStatus.OK);
+
+		}
+		return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+	}
+
+	@GetMapping("/users")
+	public @ResponseBody Iterable<UserNode> getUser(String userId) {
+		return userRepo.findAll();
 	}
 
 	@PostMapping("/users")
@@ -95,40 +135,6 @@ public class AccessControlController {
 		CollectionNode collection = collectionRepo.findByCollectionId(collectionId);
 		collectionRepo.delete(collection);
 		return new ResponseEntity<Object>(HttpStatus.OK);
-	}
-
-	@PutMapping("/users/{userName}/collections/{collectionId}/role/{role}")
-	public ResponseEntity<Object> changeRole(@PathVariable String userName, @PathVariable String collectionId,
-			@PathVariable String role, @RequestHeader String authorization) {
-		JSONObject ownerUser = userAuth(authorization);
-		if (ownerUser != null) {
-			if (!findRole((String) ownerUser.get("userId"), collectionId).contains(OWNER)) {
-				return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-			}
-			String targetUserId = getUserId(userName);
-			if (targetUserId == null) {
-				return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-			}
-			UserNode targetUserNode = userRepo.findByUserId(targetUserId);
-			if (!(OWNER + CONTRIBUTOR + READ).contains(role.toUpperCase())) {
-				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-			}
-			Role role2 = userRepo.findRole(targetUserId, collectionId);
-			if (role2 != null) {
-				targetUserNode.deleteRole(role2);
-				role2.setRole(role.toUpperCase());
-				targetUserNode.addRole(role2);
-			} else {
-				CollectionNode collectionNode = collectionRepo.findByCollectionId(collectionId);
-				Role r = new Role(role, targetUserNode, collectionNode);
-				targetUserNode.addRole(r);
-			}
-			userRepo.save(targetUserNode);
-			return new ResponseEntity<>(HttpStatus.OK);
-
-		}
-		return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
-
 	}
 
 	private String getUserId(String userName) {

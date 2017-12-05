@@ -28,6 +28,18 @@ public class TicketModel {
 		this.expire = c.getTime();
 		this.timstamp = date;
 	}
+	public TicketModel(String userId, String collectionId, String role,int expire) {
+		Date date = new Date();
+		Calendar c = Calendar.getInstance();
+		c.setTime(date);
+		c.add(Calendar.DATE, expire);
+		this.ticketId = DigestUtils.sha256Hex(userId + collectionId + date.getTime());
+		this.userId = userId;
+		this.collectionId = collectionId;
+		this.role = role;
+		this.expire = c.getTime();
+		this.timstamp = date;
+	}
 
 	public String getTicketId() {
 		return ticketId;

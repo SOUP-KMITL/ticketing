@@ -5,7 +5,7 @@
     "version": "1.0",
     "title": "Data Exchange"
   },
-  "host": "api.smartcity.kmitl.io",
+  "host": "api.smartcity.kmitl.io:8080",
   "basePath": "/api/v1",
   "tags": [
     {
@@ -330,8 +330,8 @@
         }
       }
     },
-    "/tickets/{collectionId}": {
-      "get": {
+    "/tickets": {
+      "post": {
         "summary": "Generate ticket",
         "description": "Generate ticket",
         "tags": [
@@ -339,10 +339,11 @@
         ],
         "parameters": [
           {
-            "in": "path",
-            "name": "collectionId",
-            "required": true,
-            "type": "string"
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Ticket_req"
+            }
           }
         ],
         "responses": {
@@ -369,7 +370,7 @@
         ]
       }
     },
-    "/accesscontrol/users/{userName}/collections/{collectionId}/role/{role}": {
+    "/accesscontrol": {
       "put": {
         "summary": "Change a user role",
         "description": "Change a user role",
@@ -378,24 +379,11 @@
         ],
         "parameters": [
           {
-            "in": "path",
-            "name": "collectionId",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "in": "path",
-            "name": "userName",
-            "required": true,
-            "type": "string",
-            "description": "target user name"
-          },
-          {
-            "in": "path",
-            "name": "role",
-            "required": true,
-            "type": "string",
-            "description": "OWNER or CONTRIBUTOR or READ"
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Access_control_req"
+            }
           }
         ],
         "responses": {
@@ -468,9 +456,6 @@
         "collectionName": {
           "type": "string"
         },
-        "endPoint": {
-          "type": "string"
-        },
         "type": {
           "type": "string"
         },
@@ -499,6 +484,37 @@
         "field...": {
           "description": "data...",
           "example": "data..."
+        }
+      }
+    },
+    "Ticket_req": {
+      "type": "object",
+      "properties": {
+        "collectionId": {
+          "type": "string",
+          "description": "collectionId"
+        },
+        "expire": {
+          "type": "integer",
+          "description": "in days (default is 180 days)",
+          "default": 180
+        }
+      }
+    },
+    "Access_control_req": {
+      "type": "object",
+      "properties": {
+        "userName": {
+          "type": "string",
+          "description": "userName"
+        },
+        "collectionId": {
+          "type": "string",
+          "description": "collectionId"
+        },
+        "role": {
+          "type": "string",
+          "description": "CONTRIBUTOR or READ"
         }
       }
     }

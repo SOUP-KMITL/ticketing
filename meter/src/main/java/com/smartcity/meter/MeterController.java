@@ -1,5 +1,6 @@
 package com.smartcity.meter;
 
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,20 +27,23 @@ public class MeterController {
 
 	@GetMapping("")
 	public @ResponseBody List<MeterModel> getAll(String userId, String collectionId, String[] collectionIds,
-			Long timestamp) {
+			Boolean open, Long timestamp) {
 		Query query = new Query();
 		Criteria criteria = new Criteria();
 		if (userId != null) {
 			criteria = Criteria.where("userId").is(userId);
 		}
+		if (open != null) {
+			criteria = Criteria.where("isOpen").is(open);
+		}
 		if (collectionId != null) {
 			criteria.andOperator(Criteria.where("collectionId").is(collectionId));
 		}
 		if (timestamp != null) {
-			criteria.andOperator(Criteria.where("timestamp").gt(timestamp));
+			criteria.andOperator(Criteria.where("timestamp").gt(new Date(timestamp)));
 		}
 		if (collectionIds != null) {
-			criteria.andOperator(Criteria.where("collectionId").in((Object[])collectionIds));
+			criteria.andOperator(Criteria.where("collectionId").in((Object[]) collectionIds));
 		}
 		query.addCriteria(criteria).with(new Sort(Sort.Direction.DESC, "timestamp"));
 		return mongoTemplate.find(query, MeterModel.class);
