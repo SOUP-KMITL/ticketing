@@ -26,9 +26,6 @@ public class CollectionModel {
 			JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
-		if (endPoint.equals("local")) {
-			endPoint += ":" + getCollectionId();
-		}
 		this.isOpen = isOpen;
 		this.endPoint = endPoint;
 		this.type = type;

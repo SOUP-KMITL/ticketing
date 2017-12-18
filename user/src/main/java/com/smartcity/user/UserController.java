@@ -5,7 +5,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.google.common.hash.Hashing;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
@@ -25,7 +24,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class UserController {
 	@Autowired
 	private UserModelRepository repository;
-
+	
 	@GetMapping("/")
 	public @ResponseBody List<UserModel> getAllUser(String token, String userId) {
 		if (token != null) {
@@ -38,27 +37,28 @@ public class UserController {
 	}
 
 	@GetMapping("/login")
-	public ResponseEntity<UserModel> login(@RequestHeader(value = "Authorization") String authorization) {
-		if (authorization == null) {
-			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-		}
-		if (authorization.split(" ").length > 0) {
-			String[] userPass = new String(Base64.getDecoder().decode(authorization.split(" ")[1])).split(":");
-			String pass = Hashing.sha1().hashString(userPass[1], StandardCharsets.UTF_8).toString();
-			List<UserModel> list = repository.findByuserName(userPass[0]);
-			if (list.isEmpty()) {
+	public ResponseEntity<Object> login(@RequestHeader(value = "Authorization") String authorization) {
+		try {
+			if (authorization == null) {
 				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 			}
-			UserModel user = list.get(0);
-			if (user.getUserName().equals(userPass[0]) && user.getPassword().equals(pass) && user != null) {
-				return new ResponseEntity<UserModel>(user, HttpStatus.OK);
+			if (authorization.indexOf(" ") != -1) {
+				String[] userPass = new String(Base64.getDecoder().decode(authorization.split(" ")[1])).split(":");
+				String pass = Hashing.sha1().hashString(userPass[1], StandardCharsets.UTF_8).toString();
+				List<UserModel> list = repository.findByuserName(userPass[0]);
+				if (list.isEmpty()) {
+					return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+				}
+				UserModel user = list.get(0);
+				if (user.getUserName().equals(userPass[0]) && user.getPassword().equals(pass) && user != null) {
+					return new ResponseEntity<Object>(user, HttpStatus.OK);
+				}
+			} else {
+				List<UserModel> list = repository.findByAccessToken(authorization);
+				return new ResponseEntity<Object>(list.get(0), HttpStatus.OK);
 			}
-		} else {
-			List<UserModel> list = repository.findByAccessToken(authorization);
-			if (list.isEmpty()) {
-				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-			}
-			return new ResponseEntity<UserModel>(list.get(0), HttpStatus.OK);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 	}

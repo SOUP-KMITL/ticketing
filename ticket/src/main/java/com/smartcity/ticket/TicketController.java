@@ -22,6 +22,7 @@ public class TicketController {
 	private String AC_URL = "http://access-control-service:8080/api/v1/accesscontrol";
 	private String COLLECTION_URL = "http://collection-service:8080/api/v1/collections";
 	private String USER_URL = "http://user-service:8080/api/v1/users";
+	private String CREDIT_URL = "http://credit-service:5000/api/v1/credits";
 
 	@PostMapping("")
 	public ResponseEntity<Object> genTicket(@RequestHeader(value = "Authorization") String userToken,
@@ -40,13 +41,14 @@ public class TicketController {
 			}
 			String role = getRole(userId, collectionId);
 			if (role != null) {
-				HttpResponse<String> res = Unirest.get(COLLECTION_URL + "/{collectionId}/meta").routeParam("collectionId", collectionId)
-						.asString();
+				HttpResponse<String> res = Unirest.get(COLLECTION_URL + "/{collectionId}/meta")
+						.routeParam("collectionId", collectionId).asString();
 				JSONParser parser = new JSONParser();
 				JSONArray json = (JSONArray) parser.parse(res.getBody());
 				if (role.equals("READ") && !(boolean) ((JSONObject) json.get(0)).get("open")) {
 					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 				}
+
 				String ticketString;
 				ObjectMapper mapper = new ObjectMapper();
 				try {
@@ -93,4 +95,11 @@ public class TicketController {
 		String role = res.getBody();
 		return role;
 	}
+
+//	private boolean isUserCreditVaild(String userId, String collectionId, int amount) {
+//		JSONObject reqJson = new JSONObject();
+//		reqJson.put("from", value)
+//		HttpResponse<String> res = Unirest.post(CREDIT_URL+"/transactions")..asString();
+//	}
+
 }

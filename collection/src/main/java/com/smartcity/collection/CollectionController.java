@@ -37,28 +37,27 @@ public class CollectionController {
 	private String METADATA = "MetaData";
 
 	@GetMapping("/")
-	public List<CollectionModel> getMeta(String collectionName, String collectionId, String type, Boolean open,
+	public List<Object> getMeta(String collectionName, String collectionId, String type, Boolean open,
 			String owner) {
-		Query query = new Query();
 		Criteria criteria = new Criteria();
 		if (collectionName != null) {
-			criteria.andOperator(Criteria.where("collectionName").is(collectionName));
+			criteria = criteria.and("collectionName").is(collectionName);
 		}
 		if (collectionId != null) {
-			criteria.andOperator(Criteria.where("collectionId").is(collectionId));
+			criteria = criteria.and("collectionId").is(collectionId);
 		}
 		if (type != null) {
-			criteria.andOperator(Criteria.where("type").is(type));
+			criteria = criteria.and("type").is(type);
 		}
 		if (open != null) {
-			criteria.andOperator(Criteria.where("isOpen").is(open));
+			criteria = criteria.and("isOpen").is(open);
 		}
 		if (owner != null) {
-			criteria.andOperator(Criteria.where("owner").is(owner));
+			criteria = criteria.and("owner").is(owner);
 		}
-		query.addCriteria(criteria);
-		query.fields().exclude("endPoint");
-		return mongoTemplate.find(query, CollectionModel.class, METADATA);
+		Query query = new Query(criteria);
+//		query.fields().exclude("endPoint");
+		return mongoTemplate.find(query, Object.class, METADATA);
 	}
 
 	@GetMapping("/{collectionId}/meta")

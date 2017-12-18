@@ -25,8 +25,8 @@ services:
     build: ./collection
     networks: 
       - default
-    volumes:
-      - '/pool-data/key:/key'
+    # volumes:
+      # - '/pool-data/key:/key'
     deploy:
       replicas: 2
       restart_policy:
@@ -47,8 +47,8 @@ services:
     build: ./ticket
     networks: 
       - default
-    volumes:
-      - '/pool-data/key:/key'
+    # volumes:
+      # - '/pool-data/key:/key'
     deploy:
       replicas: 2
       restart_policy:
@@ -56,9 +56,6 @@ services:
   kong:
     # image: worker-01:5000/kong
     image: kong
-    # build: ./kong
-    privileged: true
-    tty: true
     networks: 
       - default
     depends_on:
@@ -84,6 +81,9 @@ services:
       - default 
     ports:
       - '8081:8080'
+    deploy:
+      restart_policy:
+        condition: on-failure
 
   neo4j:
     image: neo4j
@@ -94,9 +94,15 @@ services:
     ports:
       - "7474:7474"
       - "7687:7687"
+    deploy:
+      restart_policy:
+        condition: on-failure
 
   mongo:
     image: mongo
+    deploy:
+      restart_policy:
+        condition: on-failure
 
   kong-database:
     image: 'postgres:9.4'
@@ -107,6 +113,9 @@ services:
       - default
     volumes:
       - '/pool-data/kong-data:/var/lib/postgresql/data'
+    deploy:
+      restart_policy:
+        condition: on-failure
       
   swagger:
     image: worker-01:5000/swagger
@@ -115,6 +124,10 @@ services:
       - default
     environment:
       - SWAGGER_JSON=/doc/data-exchange/data-exchage-swagger.json
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
 
 networks:
   default:

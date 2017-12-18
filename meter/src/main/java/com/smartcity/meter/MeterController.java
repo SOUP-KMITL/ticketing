@@ -31,19 +31,20 @@ public class MeterController {
 		Query query = new Query();
 		Criteria criteria = new Criteria();
 		if (userId != null) {
-			criteria = Criteria.where("userId").is(userId);
+			criteria = criteria.and("userId").is(userId);
 		}
 		if (open != null) {
-			criteria = Criteria.where("isOpen").is(open);
+			criteria = criteria.and("isOpen").is(open);
+
 		}
 		if (collectionId != null) {
-			criteria.andOperator(Criteria.where("collectionId").is(collectionId));
+			criteria = criteria.and("collectionId").is(collectionId);
 		}
 		if (timestamp != null) {
-			criteria.andOperator(Criteria.where("timestamp").gt(new Date(timestamp)));
+			criteria = criteria.and("timestamp").gt(new Date(timestamp));
 		}
 		if (collectionIds != null) {
-			criteria.andOperator(Criteria.where("collectionId").in((Object[]) collectionIds));
+			criteria = criteria.and("timestamp").in((Object[]) collectionIds);
 		}
 		query.addCriteria(criteria).with(new Sort(Sort.Direction.DESC, "timestamp"));
 		return mongoTemplate.find(query, MeterModel.class);
