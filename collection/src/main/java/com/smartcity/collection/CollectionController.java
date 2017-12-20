@@ -7,8 +7,10 @@ import java.util.Map;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.json.JSONException;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -27,6 +29,7 @@ import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import com.mashape.unirest.request.HttpRequest;
 import com.mongodb.MongoClient;
 import com.smartcity.collection.SecurityModel;
 
@@ -37,8 +40,7 @@ public class CollectionController {
 	private String METADATA = "MetaData";
 
 	@GetMapping("/")
-	public List<Object> getMeta(String collectionName, String collectionId, String type, Boolean open,
-			String owner) {
+	public List<Object> getMeta(String collectionName, String collectionId, String type, Boolean open, String owner) {
 		Criteria criteria = new Criteria();
 		if (collectionName != null) {
 			criteria = criteria.and("collectionName").is(collectionName);
@@ -56,7 +58,7 @@ public class CollectionController {
 			criteria = criteria.and("owner").is(owner);
 		}
 		Query query = new Query(criteria);
-//		query.fields().exclude("endPoint");
+		// query.fields().exclude("endPoint");
 		return mongoTemplate.find(query, Object.class, METADATA);
 	}
 
@@ -77,6 +79,7 @@ public class CollectionController {
 			String userId = (String) res.getBody().getArray().getJSONObject(0).get("userId");
 			String userName = (String) res.getBody().getArray().getJSONObject(0).get("userName");
 			JSONObject example = new JSONObject((Map) json.get("example"));
+			JSONObject endPoint = new JSONObject((Map) json.get("endPoint"));
 			String collectionId = DigestUtils.sha256Hex((String) json.get("collectionName") + userId);
 			if (!mongoTemplate
 					.find(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA)
@@ -84,7 +87,7 @@ public class CollectionController {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
-					(String) json.get("endPoint"), (String) json.get("type"), userName, example,
+					endPoint, (String) json.get("type"), userName, example,
 					(boolean) json.get("isOpen"));
 			mongoTemplate.insert(collection, METADATA);
 			mongoTemplate.createCollection(collection.getCollectionId());
@@ -129,19 +132,63 @@ public class CollectionController {
 		return new ResponseEntity<>(HttpStatus.FORBIDDEN);
 	}
 
+	@SuppressWarnings("unchecked")
 	@GetMapping("/{collectionId}")
 	public ResponseEntity<Object> getCollection(@PathVariable String collectionId,
 			@RequestHeader(value = "Authorization") String ticket) {
 		JSONObject jsonTicket = decrypt(ticket);
 		if (jsonTicket != null) {
-			if (isValidTicket(collectionId, jsonTicket) && mongoTemplate.collectionExists(collectionId)) {
-				System.out.println(jsonTicket);
-				Query q = new Query();
-				q.fields().exclude("_id");
-				List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
-				sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",
-						res.size(), res.toString().length());
-				return new ResponseEntity<>(res, HttpStatus.OK);
+			if (isValidTicket(collectionId, jsonTicket)) {
+				CollectionModel collection = mongoTemplate.findOne(
+						new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA);
+				if (collection != null) {
+					JSONObject endpoint = collection.getEndPoint();
+					if (((String) endpoint.get("type")).equalsIgnoreCase("local")) {
+						Query q = new Query();
+						q.fields().exclude("_id");
+						List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
+						sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",
+								res.size(), res.toString().length());
+						return new ResponseEntity<>(res, HttpStatus.OK);
+					} else if (((String) endpoint.get("type")).equalsIgnoreCase("remote")) {
+						try {
+							HttpRequest req_remote = Unirest.get((String) endpoint.get("url"));
+							if(endpoint.containsKey("queryString")) {
+								req_remote = req_remote.queryString((Map<String, Object>) endpoint.get("queryString"));
+							}
+							if(endpoint.containsKey("headers")) {
+								req_remote = req_remote.headers((Map<String, String>) endpoint.get("headers"));
+							}
+							HttpResponse<String> res_remote = req_remote.asString();
+							JSONParser parser = new JSONParser();
+							try {
+								String type = parser.parse(res_remote.getBody()).getClass().getName();
+								Class<?> c = null;
+								try {
+									c = Class.forName(type);
+								} catch (ClassNotFoundException e) {
+									e.printStackTrace();
+									return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
+								}
+								Object json = c.cast(parser.parse(res_remote.getBody()));
+								int record = 1;
+								if(type.equalsIgnoreCase("org.json.simple.JSONArray")) {
+									record = ((JSONArray)json).size();
+								}
+								sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read", record,
+										json.toString().length());
+								return new ResponseEntity<Object>(json,HttpStatus.OK);
+							} catch (ParseException e) {
+								e.printStackTrace();
+							}
+							sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read", 1,
+									res_remote.getBody().length());
+							return new ResponseEntity<Object>(res_remote.getBody(),HttpStatus.OK);
+						} catch (UnirestException e) {
+							e.printStackTrace();
+						}
+					}
+				}
 			}
 			return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
 		}
@@ -173,7 +220,7 @@ public class CollectionController {
 		body.put("open", col.isOpen());
 		body.put("type", type);
 		body.put("record", record);
-		body.put("size", size);
+		body.put("size", size - 2);
 		try {
 			return Unirest.post("http://meter-service:8080/api/v1/meters/").header("Content-Type", "application/json")
 					.body(body.toJSONString()).asString();

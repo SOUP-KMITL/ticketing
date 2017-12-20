@@ -12,7 +12,7 @@ public class CollectionModel {
 	private String collectionId;
 
 	private String collectionName;
-	private String endPoint;
+	private JSONObject endPoint;
 	private String type;
 	private String owner;
 	private JSONObject example;
@@ -22,7 +22,7 @@ public class CollectionModel {
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id, String collectionName, String endPoint, String type, String owner,
+	public CollectionModel(String id, String collectionName, JSONObject endPoint, String type, String owner,
 			JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
@@ -50,11 +50,11 @@ public class CollectionModel {
 		this.collectionName = collectionName;
 	}
 
-	public String getEndPoint() {
+	public JSONObject getEndPoint() {
 		return endPoint;
 	}
 
-	public void setEndPoint(String endPoint) {
+	public void setEndPoint(JSONObject endPoint) {
 		this.endPoint = endPoint;
 	}
 
