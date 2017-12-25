@@ -47,8 +47,8 @@ public class UserModel {
 	}
 
 	public void setPassword(String password) {
-		String sha1hex = Hashing.sha1().hashString(password, StandardCharsets.UTF_8).toString();
-		this.password = sha1hex;
+		String hashPass = UpdatableBCrypt.hash(password); 
+		this.password = hashPass;
 	}
 
 	public String getUserName() {

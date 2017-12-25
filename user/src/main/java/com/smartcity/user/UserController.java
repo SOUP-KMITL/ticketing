@@ -2,10 +2,8 @@ package com.smartcity.user;
 
 import org.springframework.web.bind.annotation.RestController;
 
-import com.google.common.hash.Hashing;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import org.json.simple.JSONObject;
@@ -24,7 +22,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class UserController {
 	@Autowired
 	private UserModelRepository repository;
-	
 	@GetMapping("/")
 	public @ResponseBody List<UserModel> getAllUser(String token, String userId) {
 		if (token != null) {
@@ -44,14 +41,16 @@ public class UserController {
 			}
 			if (authorization.indexOf(" ") != -1) {
 				String[] userPass = new String(Base64.getDecoder().decode(authorization.split(" ")[1])).split(":");
-				String pass = Hashing.sha1().hashString(userPass[1], StandardCharsets.UTF_8).toString();
 				List<UserModel> list = repository.findByuserName(userPass[0]);
 				if (list.isEmpty()) {
 					return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 				}
 				UserModel user = list.get(0);
-				if (user.getUserName().equals(userPass[0]) && user.getPassword().equals(pass) && user != null) {
-					return new ResponseEntity<Object>(user, HttpStatus.OK);
+				if(isValid(authorization, user)) {
+					return new ResponseEntity<Object>(HttpStatus.OK);
+				}
+				else {
+					return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 				}
 			} else {
 				List<UserModel> list = repository.findByAccessToken(authorization);
@@ -118,8 +117,8 @@ public class UserController {
 
 	private boolean isValid(String basicAuth, UserModel user) {
 		String[] userPass = new String(Base64.getDecoder().decode(basicAuth.split(" ")[1])).split(":");
-		String pass = Hashing.sha1().hashString(userPass[1], StandardCharsets.UTF_8).toString();
-		if (user.getUserName().equals(userPass[0]) && user.getPassword().equals(pass)) {
+		String pass = userPass[1];
+		if (user.getUserName().equals(userPass[0]) && UpdatableBCrypt.verifyHash(pass, user.getPassword())) {
 			return true;
 		}
 		return false;
