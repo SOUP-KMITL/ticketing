@@ -22,7 +22,7 @@ public class TicketController {
 	private String AC_URL = "http://access-control-service:8080/api/v1/accesscontrol";
 	private String COLLECTION_URL = "http://collection-service:8080/api/v1/collections";
 	private String USER_URL = "http://user-service:8080/api/v1/users";
-	private String CREDIT_URL = "http://credit-service:5000/api/v1/credits";
+	private String CREDIT_URL = "http://credit-service:5000/credits";
 
 	@PostMapping("")
 	public ResponseEntity<Object> genTicket(@RequestHeader(value = "Authorization") String userToken,
@@ -45,17 +45,22 @@ public class TicketController {
 						.routeParam("collectionId", collectionId).asString();
 				JSONParser parser = new JSONParser();
 				JSONArray json = (JSONArray) parser.parse(res.getBody());
-				if (role.equals("READ") && !(boolean) ((JSONObject) json.get(0)).get("open")) {
+				JSONObject collectionObj = (JSONObject) json.get(0);
+				String collectionOwnerId = getUserIdByName((String) collectionObj.get("owner"));
+				if (role.equals("READ") && !(boolean) collectionObj.get("open")) {
 					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 				}
-
+				if (!isUserCreditVaild(userId, collectionId, collectionOwnerId)) {
+					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
+				}
 				String ticketString;
 				ObjectMapper mapper = new ObjectMapper();
 				try {
-					ticketString = mapper.writeValueAsString(
-							new TicketModel(userId, collectionId, role, (int) jsonBody.get("expire")));
+					ticketString = mapper.writeValueAsString(new TicketModel(userId, collectionId, collectionOwnerId,
+							role, (int) jsonBody.get("expire")));
 				} catch (Exception e) {
-					ticketString = mapper.writeValueAsString(new TicketModel(userId, collectionId, role));
+					ticketString = mapper
+							.writeValueAsString(new TicketModel(userId, collectionId, collectionOwnerId, role));
 				}
 				return new ResponseEntity<Object>(
 						Base64.getUrlEncoder().encodeToString(
@@ -68,6 +73,19 @@ public class TicketController {
 			e.printStackTrace();
 		}
 		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+	}
+
+	private String getUserIdByName(String userName) {
+		HttpResponse<String> res = null;
+		JSONParser parser = new JSONParser();
+		JSONArray json = null;
+		try {
+			res = Unirest.get(USER_URL + "/{userName}").routeParam("userName", userName).asString();
+			json = (JSONArray) parser.parse(res.getBody());
+		} catch (UnirestException | ParseException e) {
+			return null;
+		}
+		return (String) ((JSONObject) json.get(0)).get("userId");
 	}
 
 	private String getUserId(String userToken) {
@@ -96,10 +114,22 @@ public class TicketController {
 		return role;
 	}
 
-//	private boolean isUserCreditVaild(String userId, String collectionId, int amount) {
-//		JSONObject reqJson = new JSONObject();
-//		reqJson.put("from", value)
-//		HttpResponse<String> res = Unirest.post(CREDIT_URL+"/transactions")..asString();
-//	}
+	@SuppressWarnings("unchecked")
+	private boolean isUserCreditVaild(String userId, String collectionId, String ownerId) {
+		JSONObject reqJson = new JSONObject();
+		reqJson.put("buyer", userId);
+		reqJson.put("seller", ownerId);
+		reqJson.put("collectionId", collectionId);
+		try {
+			HttpResponse<String> res = Unirest.post(CREDIT_URL + "/transactions/")
+					.header("Content-Type", "application/json").body(reqJson.toJSONString()).asString();
+			JSONParser parser = new JSONParser();
+			JSONObject jsonRes = (JSONObject) parser.parse(res.getBody());
+			return (boolean) jsonRes.get("is_transfered");
+		} catch (UnirestException | ParseException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
 
 }

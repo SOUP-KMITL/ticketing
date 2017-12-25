@@ -40,13 +40,14 @@ public class CollectionController {
 	private String METADATA = "MetaData";
 
 	@GetMapping("/")
-	public List<Object> getMeta(String collectionName, String collectionId, String type, Boolean open, String owner) {
+	public List<Object> getMeta(String collectionName, String collectionId, String type, Boolean open,
+			String owner) {
 		Criteria criteria = new Criteria();
 		if (collectionName != null) {
 			criteria = criteria.and("collectionName").is(collectionName);
 		}
 		if (collectionId != null) {
-			criteria = criteria.and("collectionId").is(collectionId);
+			criteria = criteria.and("_id").regex(".*"+collectionId+".*");
 		}
 		if (type != null) {
 			criteria = criteria.and("type").is(type);
@@ -58,8 +59,11 @@ public class CollectionController {
 			criteria = criteria.and("owner").is(owner);
 		}
 		Query query = new Query(criteria);
-		// query.fields().exclude("endPoint");
-		return mongoTemplate.find(query, Object.class, METADATA);
+//		query.fields().include("collectionId").include("collectionName").include("type").include("owner")
+//				.include("example").include("isOpen");
+		query.fields().exclude("endPoint");
+		List<Object> res = mongoTemplate.find(query, Object.class, METADATA);
+		return res;
 	}
 
 	@GetMapping("/{collectionId}/meta")
@@ -87,8 +91,7 @@ public class CollectionController {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
-					endPoint, (String) json.get("type"), userName, example,
-					(boolean) json.get("isOpen"));
+					endPoint, (String) json.get("type"), userName, example, (boolean) json.get("isOpen"));
 			mongoTemplate.insert(collection, METADATA);
 			mongoTemplate.createCollection(collection.getCollectionId());
 			JSONObject body = new JSONObject();
@@ -153,10 +156,10 @@ public class CollectionController {
 					} else if (((String) endpoint.get("type")).equalsIgnoreCase("remote")) {
 						try {
 							HttpRequest req_remote = Unirest.get((String) endpoint.get("url"));
-							if(endpoint.containsKey("queryString")) {
+							if (endpoint.containsKey("queryString")) {
 								req_remote = req_remote.queryString((Map<String, Object>) endpoint.get("queryString"));
 							}
-							if(endpoint.containsKey("headers")) {
+							if (endpoint.containsKey("headers")) {
 								req_remote = req_remote.headers((Map<String, String>) endpoint.get("headers"));
 							}
 							HttpResponse<String> res_remote = req_remote.asString();
@@ -172,18 +175,18 @@ public class CollectionController {
 								}
 								Object json = c.cast(parser.parse(res_remote.getBody()));
 								int record = 1;
-								if(type.equalsIgnoreCase("org.json.simple.JSONArray")) {
-									record = ((JSONArray)json).size();
+								if (type.equalsIgnoreCase("org.json.simple.JSONArray")) {
+									record = ((JSONArray) json).size();
 								}
-								sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read", record,
-										json.toString().length());
-								return new ResponseEntity<Object>(json,HttpStatus.OK);
+								sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"),
+										"read", record, json.toString().length());
+								return new ResponseEntity<Object>(json, HttpStatus.OK);
 							} catch (ParseException e) {
 								e.printStackTrace();
 							}
-							sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read", 1,
-									res_remote.getBody().length());
-							return new ResponseEntity<Object>(res_remote.getBody(),HttpStatus.OK);
+							sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"),
+									"read", 1, res_remote.getBody().length());
+							return new ResponseEntity<Object>(res_remote.getBody(), HttpStatus.OK);
 						} catch (UnirestException e) {
 							e.printStackTrace();
 						}
@@ -199,6 +202,9 @@ public class CollectionController {
 	public ResponseEntity<Object> insertCollection(@PathVariable String collectionId,
 			@RequestHeader(value = "Authorization") String ticket, @RequestBody JSONObject data) {
 		JSONObject jsonTicket = decrypt(ticket);
+		if(jsonTicket == null) {
+			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);	
+		}
 		if (isValidTicket(collectionId, jsonTicket)
 				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))
 				&& mongoTemplate.collectionExists(collectionId)) {

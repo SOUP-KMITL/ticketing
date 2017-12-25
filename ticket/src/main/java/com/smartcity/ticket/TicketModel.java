@@ -9,14 +9,16 @@ public class TicketModel {
 	private String ticketId;
 	private String userId;
 	private String collectionId;
+	private String collectionOwnerId;
 	private String role;
 	private Date expire;
 	private Date timstamp;
+
 	public TicketModel() {
 
 	}
 
-	public TicketModel(String userId, String collectionId, String role) {
+	public TicketModel(String userId, String collectionId, String collectionOwnerId, String role) {
 		Date date = new Date();
 		Calendar c = Calendar.getInstance();
 		c.setTime(date);
@@ -24,11 +26,13 @@ public class TicketModel {
 		this.ticketId = DigestUtils.sha256Hex(userId + collectionId + date.getTime());
 		this.userId = userId;
 		this.collectionId = collectionId;
+		this.collectionOwnerId = collectionOwnerId;
 		this.role = role;
 		this.expire = c.getTime();
 		this.timstamp = date;
 	}
-	public TicketModel(String userId, String collectionId, String role,int expire) {
+
+	public TicketModel(String userId, String collectionId, String collectionOwnerId, String role, int expire) {
 		Date date = new Date();
 		Calendar c = Calendar.getInstance();
 		c.setTime(date);
@@ -36,6 +40,7 @@ public class TicketModel {
 		this.ticketId = DigestUtils.sha256Hex(userId + collectionId + date.getTime());
 		this.userId = userId;
 		this.collectionId = collectionId;
+		this.collectionOwnerId = collectionOwnerId;
 		this.role = role;
 		this.expire = c.getTime();
 		this.timstamp = date;
@@ -89,5 +94,12 @@ public class TicketModel {
 		this.expire = expire;
 	}
 
+	public String getCollectionOwnerId() {
+		return collectionOwnerId;
+	}
+
+	public void setCollectionOwnerId(String collectionOwnerId) {
+		this.collectionOwnerId = collectionOwnerId;
+	}
 
 }
