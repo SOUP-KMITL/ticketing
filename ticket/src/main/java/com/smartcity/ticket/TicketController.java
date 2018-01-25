@@ -7,6 +7,7 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -16,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-
+@CrossOrigin
 @RestController
 public class TicketController {
 	private String AC_URL = "http://access-control-service:8080/api/v1/accesscontrol";
@@ -37,10 +38,11 @@ public class TicketController {
 		try {
 			String userId = getUserId(userToken);
 			if (userId == null) {
-				return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
+				return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 			}
 			String role = getRole(userId, collectionId);
-			if (role != null) {
+			System.err.println(role);
+			if (!role.isEmpty()) {
 				HttpResponse<String> res = Unirest.get(COLLECTION_URL + "/{collectionId}/meta")
 						.routeParam("collectionId", collectionId).asString();
 				JSONParser parser = new JSONParser();
@@ -65,7 +67,7 @@ public class TicketController {
 				return new ResponseEntity<Object>(
 						Base64.getUrlEncoder().encodeToString(
 								security.encrypt(ticketString.getBytes("utf-8")).toJSONString().getBytes("utf-8")),
-						HttpStatus.OK);
+						HttpStatus.CREATED);
 			}
 			return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 
@@ -95,10 +97,10 @@ public class TicketController {
 		try {
 			res = Unirest.get(USER_URL).queryString("token", userToken).asString();
 			json = (JSONArray) parser.parse(res.getBody());
+			return (String) ((JSONObject) json.get(0)).get("userId");
 		} catch (UnirestException | ParseException e) {
 			return null;
 		}
-		return (String) ((JSONObject) json.get(0)).get("userId");
 	}
 
 	private String getRole(String userId, String collectionId) {
@@ -116,20 +118,21 @@ public class TicketController {
 
 	@SuppressWarnings("unchecked")
 	private boolean isUserCreditVaild(String userId, String collectionId, String ownerId) {
-		JSONObject reqJson = new JSONObject();
-		reqJson.put("buyer", userId);
-		reqJson.put("seller", ownerId);
-		reqJson.put("collectionId", collectionId);
-		try {
-			HttpResponse<String> res = Unirest.post(CREDIT_URL + "/transactions/")
-					.header("Content-Type", "application/json").body(reqJson.toJSONString()).asString();
-			JSONParser parser = new JSONParser();
-			JSONObject jsonRes = (JSONObject) parser.parse(res.getBody());
-			return (boolean) jsonRes.get("is_transfered");
-		} catch (UnirestException | ParseException e) {
-			e.printStackTrace();
-		}
-		return false;
+//		JSONObject reqJson = new JSONObject();
+//		reqJson.put("from", userId);
+//		reqJson.put("to", ownerId);
+//		reqJson.put("type", "TCKT");
+//		reqJson.put("collectionId", collectionId);
+//		try {
+//			HttpResponse<String> res = Unirest.post(CREDIT_URL + "/transactions/")
+//					.header("Content-Type", "application/json").body(reqJson.toJSONString()).asString();
+//			if (res.getStatus() == 200) {
+//				return true;
+//			}
+//		} catch (UnirestException e) {
+//			e.printStackTrace();
+//		}
+		return true;
 	}
 
 }

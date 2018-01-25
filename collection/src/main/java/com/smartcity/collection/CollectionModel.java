@@ -14,6 +14,7 @@ public class CollectionModel {
 	private String collectionName;
 	private JSONObject endPoint;
 	private String type;
+	private int encryptionLevel;
 	private String owner;
 	private JSONObject example;
 	private Date timestamp;
@@ -22,13 +23,17 @@ public class CollectionModel {
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id, String collectionName, JSONObject endPoint, String type, String owner,
-			JSONObject example, boolean isOpen) {
+	public CollectionModel(String id, String collectionName, JSONObject endPoint, String type, int encryptionLevel,
+			String owner, JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
 		this.isOpen = isOpen;
 		this.endPoint = endPoint;
 		this.type = type;
+		if (encryptionLevel > 2 || encryptionLevel < 0) {
+			this.encryptionLevel = 0;
+		}
+		this.encryptionLevel = encryptionLevel;
 		this.owner = owner;
 		this.example = example;
 		this.setTimestamp(new Date());
@@ -96,5 +101,13 @@ public class CollectionModel {
 
 	public void setOwner(String owner) {
 		this.owner = owner;
+	}
+
+	public int getEncryptionLevel() {
+		return encryptionLevel;
+	}
+
+	public void setEncryptionLevel(int encryptionLevel) {
+		this.encryptionLevel = encryptionLevel;
 	}
 }

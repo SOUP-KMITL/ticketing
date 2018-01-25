@@ -1,9 +1,20 @@
 package com.smartcity.collection;
 
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.json.JSONException;
@@ -11,12 +22,14 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,7 +45,7 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import com.mashape.unirest.request.HttpRequest;
 import com.mongodb.MongoClient;
 import com.smartcity.collection.SecurityModel;
-
+@CrossOrigin
 @RestController
 public class CollectionController {
 	private MongoTemplate mongoTemplate = new MongoTemplate(
@@ -40,14 +53,13 @@ public class CollectionController {
 	private String METADATA = "MetaData";
 
 	@GetMapping("/")
-	public List<Object> getMeta(String collectionName, String collectionId, String type, Boolean open,
-			String owner) {
+	public List<Object> getMeta(Pageable pageable,String collectionName, String collectionId, String type, Boolean open, String owner) {
 		Criteria criteria = new Criteria();
 		if (collectionName != null) {
 			criteria = criteria.and("collectionName").is(collectionName);
 		}
 		if (collectionId != null) {
-			criteria = criteria.and("_id").regex(".*"+collectionId+".*");
+			criteria = criteria.and("_id").regex(".*" + collectionId + ".*");
 		}
 		if (type != null) {
 			criteria = criteria.and("type").is(type);
@@ -59,9 +71,8 @@ public class CollectionController {
 			criteria = criteria.and("owner").is(owner);
 		}
 		Query query = new Query(criteria);
-//		query.fields().include("collectionId").include("collectionName").include("type").include("owner")
-//				.include("example").include("isOpen");
 		query.fields().exclude("endPoint");
+		query.with(pageable);
 		List<Object> res = mongoTemplate.find(query, Object.class, METADATA);
 		return res;
 	}
@@ -85,22 +96,27 @@ public class CollectionController {
 			JSONObject example = new JSONObject((Map) json.get("example"));
 			JSONObject endPoint = new JSONObject((Map) json.get("endPoint"));
 			String collectionId = DigestUtils.sha256Hex((String) json.get("collectionName") + userId);
+			int encryptionLevel = (int) json.getOrDefault("encryptionLevel", 0);
 			if (!mongoTemplate
 					.find(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA)
 					.isEmpty()) {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
-					endPoint, (String) json.get("type"), userName, example, (boolean) json.get("isOpen"));
-			mongoTemplate.insert(collection, METADATA);
-			mongoTemplate.createCollection(collection.getCollectionId());
+					endPoint, (String) json.get("type"), encryptionLevel, userName, example,
+					(boolean) json.get("isOpen"));
 			JSONObject body = new JSONObject();
 			body.put("userId", userId);
 			body.put("collectionId", collection.getCollectionId());
 			body.put("type", "OWNER");
 			body.put("isOpen", collection.isOpen());
-			Unirest.post("http://access-control-service:8080/api/v1/accesscontrol/collections")
+			HttpResponse<String> acRes = Unirest.post("http://access-control-service:8080/api/v1/accesscontrol/collections")
 					.header("Content-Type", "application/json").body(body.toJSONString()).asString();
+			if(!(acRes.getStatus() >= 200 && acRes.getStatus() < 300)) {
+				return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+			}
+			mongoTemplate.insert(collection, METADATA);
+			mongoTemplate.createCollection(collection.getCollectionId());
 			return new ResponseEntity<Object>(collection.getCollectionId(), HttpStatus.CREATED);
 		} catch (UnirestException e1) {
 			e1.printStackTrace();
@@ -137,7 +153,7 @@ public class CollectionController {
 
 	@SuppressWarnings("unchecked")
 	@GetMapping("/{collectionId}")
-	public ResponseEntity<Object> getCollection(@PathVariable String collectionId,
+	public ResponseEntity<Object> getCollection(Pageable pageable,@PathVariable String collectionId,
 			@RequestHeader(value = "Authorization") String ticket) {
 		JSONObject jsonTicket = decrypt(ticket);
 		if (jsonTicket != null) {
@@ -149,7 +165,7 @@ public class CollectionController {
 					if (((String) endpoint.get("type")).equalsIgnoreCase("local")) {
 						Query q = new Query();
 						q.fields().exclude("_id");
-						List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
+						List<JSONObject> res = retrieveData(pageable,collectionId);
 						sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",
 								res.size(), res.toString().length());
 						return new ResponseEntity<>(res, HttpStatus.OK);
@@ -202,16 +218,16 @@ public class CollectionController {
 	public ResponseEntity<Object> insertCollection(@PathVariable String collectionId,
 			@RequestHeader(value = "Authorization") String ticket, @RequestBody JSONObject data) {
 		JSONObject jsonTicket = decrypt(ticket);
-		if(jsonTicket == null) {
-			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);	
+		if (jsonTicket == null) {
+			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 		}
 		if (isValidTicket(collectionId, jsonTicket)
 				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))
 				&& mongoTemplate.collectionExists(collectionId)) {
 			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write", 1,
 					data.toString().length());
-			mongoTemplate.save(data, collectionId);
-			return new ResponseEntity<>(HttpStatus.OK);
+			storingData(collectionId, data);
+			return new ResponseEntity<>(HttpStatus.CREATED);
 		}
 		return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 	}
@@ -266,4 +282,99 @@ public class CollectionController {
 		return null;
 	}
 
+	@SuppressWarnings("unchecked")
+	private void storingData(String collectionId, JSONObject data) {
+		CollectionModel collection = mongoTemplate.findById(collectionId, CollectionModel.class, METADATA);
+		if (collection.getEncryptionLevel() == 2) {
+			JSONObject enData = new JSONObject();
+			try {
+				enData.put("data", encryptData(data.toJSONString(), getAesKey(collectionId)));
+				mongoTemplate.save(enData,collectionId);
+			} catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | IllegalBlockSizeException
+					| BadPaddingException e) {
+				e.printStackTrace();
+				mongoTemplate.save(data, collectionId);
+			}
+			
+		} else if (collection.getEncryptionLevel() == 1) {
+			System.out.println("System encrypt");
+			mongoTemplate.save(data, collectionId);
+		} else {
+			System.out.println("No encrypt");
+			mongoTemplate.save(data, collectionId);
+		}
+	}
+	private List<JSONObject> retrieveData(Pageable pageable,String collectionId) {
+		CollectionModel collection = mongoTemplate.findById(collectionId, CollectionModel.class, METADATA);
+		Query q = new Query();
+		q.fields().exclude("_id");
+		q.with(pageable);
+		List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
+		if (collection.getEncryptionLevel() == 2) {
+			SecretKey key;
+			try {
+				key = getAesKey(collectionId);
+				List<JSONObject> deRes = new ArrayList<JSONObject>();
+				res.forEach(obj -> {
+					try {
+						deRes.add(decryptData((String)obj.get("data"),key));
+					} catch (InvalidKeyException | IllegalBlockSizeException | BadPaddingException
+							| NoSuchAlgorithmException | NoSuchPaddingException | ParseException e) {
+						e.printStackTrace();
+					}
+				});
+				return deRes;
+			} catch (NoSuchAlgorithmException e) {
+				e.printStackTrace();
+			}
+			return res;
+			
+		} else if (collection.getEncryptionLevel() == 1) {
+			System.out.println("System encrypt");
+			return res;
+		} else {
+			System.out.println("No encrypt");
+			return res;
+		}
+	}
+	@SuppressWarnings("unchecked")
+	private SecretKey getAesKey(String collectionId) throws NoSuchAlgorithmException {
+		JSONObject key = mongoTemplate.findOne(new Query(Criteria.where("collectionId").is(collectionId)),
+				JSONObject.class, "KeyMoc");
+		SecretKey aesKey;
+		if (key == null) {
+			KeyGenerator keygenerator = KeyGenerator.getInstance("AES");
+			aesKey = keygenerator.generateKey();
+			JSONObject keyObject = new JSONObject();
+			keyObject.put("collectionId", collectionId);
+			keyObject.put("key", Base64.getEncoder().encodeToString(aesKey.getEncoded()));
+			mongoTemplate.save(keyObject, "KeyMoc");
+		} else {
+			String encodeKey = (String) key.get("key");
+			byte[] decodedKey = Base64.getDecoder().decode(encodeKey);
+			aesKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
+		}
+		return aesKey;
+	}
+
+	private String encryptData(String data, SecretKey aesKey) throws NoSuchAlgorithmException, NoSuchPaddingException,
+			InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+		Cipher aesCipher;
+		aesCipher = Cipher.getInstance("AES");
+		aesCipher.init(Cipher.ENCRYPT_MODE, aesKey);
+		byte[] text = data.getBytes();
+		byte[] textEncrypted = aesCipher.doFinal(text);
+		return Base64.getEncoder().encodeToString(textEncrypted);
+
+	}
+
+	private JSONObject decryptData(String enData, SecretKey aesKey) throws IllegalBlockSizeException, BadPaddingException,
+			InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, ParseException {
+		Cipher aesCipher;
+		aesCipher = Cipher.getInstance("AES");
+		aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
+		byte[] textDecrypted = aesCipher.doFinal(Base64.getDecoder().decode(enData));
+		JSONParser parser = new JSONParser();
+		return (JSONObject) parser.parse(new String(textDecrypted));
+	}
 }

@@ -5,7 +5,7 @@
     "version": "1.0",
     "title": "Data Exchange"
   },
-  "host": "203.154.59.55:8080",
+  "host": "api.smartcity.kmitl.io",
   "basePath": "/api/v1",
   "tags": [
     {
@@ -25,7 +25,7 @@
     }
   ],
   "schemes": [
-    "http"
+    "https"
   ],
   "paths": {
     "/users": {
@@ -39,9 +39,12 @@
             "name": "body",
             "in": "body",
             "schema": {
-              "$ref": "#/definitions/UserForm"
+              "$ref": "#/definitions/User_req"
             }
           }
+        ],
+        "consumes": [
+          "application/json"
         ],
         "responses": {
           "201": {
@@ -51,6 +54,36 @@
             "description": "Invalid input"
           }
         }
+      }
+    },
+    "/users/login": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "login",
+        "consumes": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "basic_auth": []
+          },
+          {
+            "user_token": []
+          }
+        ]
       }
     },
     "/users/{userName}/token": {
@@ -113,6 +146,47 @@
         "security": [
           {
             "basic_auth": []
+          }
+        ]
+      }
+    },
+    "/users/{userName}/picture": {
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "summary": "update user profile picture",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "userName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "formData",
+            "name": "picture",
+            "type": "file",
+            "description": "Profile image in jpg format only."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "basic_auth": []
+          },
+          {
+            "user_token": []
           }
         ]
       }
@@ -449,10 +523,43 @@
           }
         ]
       }
+    },
+    "/accesscontrol/{collectionId}": {
+      "get": {
+        "summary": "get role for collection",
+        "tags": [
+          "access control"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collectionId",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string",
+              "description": "role of user"
+            }
+          },
+          "401": {
+            "description": "UNauthorized"
+          }
+        },
+        "security": [
+          {
+            "user_token": []
+          }
+        ]
+      }
     }
   },
   "definitions": {
-    "UserForm": {
+    "User_req": {
       "type": "object",
       "properties": {
         "userName": {
@@ -462,6 +569,12 @@
           "type": "string"
         },
         "email": {
+          "type": "string"
+        },
+        "firstName": {
+          "type": "string"
+        },
+        "lastName": {
           "type": "string"
         }
       }
@@ -477,6 +590,11 @@
         },
         "type": {
           "type": "string"
+        },
+        "encryptionLevel": {
+          "type": "integer",
+          "description": "0 - the data is not encrypted(High optimization and Indexing), 1 - the data is medium encrypted (Medium optimization and Indexing) , 2 - the data is strong encrypted (No optimization and Indexing)",
+          "default": 0
         },
         "example": {
           "type": "object"
@@ -541,6 +659,11 @@
         },
         "type": {
           "type": "string"
+        },
+        "encryptionLevel": {
+          "type": "integer",
+          "description": "0 - the data is not encrypted(High optimization and Indexing), 1 - the data is medium encrypted (Medium optimization and Indexing) , 2 - the data is strong encrypted (No optimization and Indexing)",
+          "default": 0
         },
         "example": {
           "type": "object"

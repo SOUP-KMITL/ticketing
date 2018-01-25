@@ -7,6 +7,7 @@ import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,7 @@ import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 
+@CrossOrigin
 @RestController
 public class AccessControlController {
 	@Autowired
@@ -40,6 +42,17 @@ public class AccessControlController {
 		}
 	}
 
+	@GetMapping("/{collectionId}")
+	public ResponseEntity<String> getRoleByCollection(@PathVariable String collectionId,
+			@RequestHeader String authorization) {
+		JSONObject user = userAuth(authorization);
+		if (user == null) {
+			return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+		}
+		String role = findRole((String) (user.get("userId")), collectionId);
+		return new ResponseEntity<String>(role, HttpStatus.OK);
+	}
+
 	@PostMapping("/")
 	public ResponseEntity<Object> createRelationship(@RequestBody JSONObject json) {
 		String type = ((String) json.get("type")).toUpperCase();
@@ -57,10 +70,10 @@ public class AccessControlController {
 		String userName;
 		String role;
 		try {
-			collectionId = (String)jsonBody.get("collectionId");
-			userName = (String)jsonBody.get("userName");
-			role = (String)jsonBody.get("role");
-		}catch (Exception e) {
+			collectionId = (String) jsonBody.get("collectionId");
+			userName = (String) jsonBody.get("userName");
+			role = (String) jsonBody.get("role");
+		} catch (Exception e) {
 			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 		}
 		JSONObject ownerUser = userAuth(authorization);
@@ -71,6 +84,9 @@ public class AccessControlController {
 			String targetUserId = getUserId(userName);
 			if (targetUserId == null) {
 				return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+			}
+			if (targetUserId.equalsIgnoreCase((String) ownerUser.get("userId"))) {
+				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 			}
 			UserNode targetUserNode = userRepo.findByUserId(targetUserId);
 			if (!(OWNER + CONTRIBUTOR + READ).contains(role.toUpperCase())) {
@@ -119,12 +135,10 @@ public class AccessControlController {
 				users.forEach(user -> user.addRole(new Role(READ, user, collection)));
 				userRepo.save(users);
 			}
-			return createRelationship(json);
-		} else {
-			UserNode user = userRepo.findByUserId((String) json.get("userId"));
-			user.addRole(new Role(OWNER, user, collection));
-			userRepo.save(user);
 		}
+		UserNode user = userRepo.findByUserId((String) json.get("userId"));
+		user.addRole(new Role(OWNER, user, collection));
+		userRepo.save(user);
 		collectionRepo.save(collection);
 		return new ResponseEntity<>(HttpStatus.CREATED);
 
@@ -174,8 +188,7 @@ public class AccessControlController {
 			e.printStackTrace();
 		}
 		user = (JSONObject) array.get(0);
-		System.out.println(user);
-		return (JSONObject) user;
+		return user;
 	}
 
 }
