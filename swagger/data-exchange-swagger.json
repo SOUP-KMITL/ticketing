@@ -227,6 +227,18 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "type": "integer"
           }
         ],
         "responses": {
@@ -287,6 +299,25 @@
             "name": "collectionId",
             "type": "string",
             "required": true
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "description": "{fieldname},asc to order by ascending and {fieldname},desc to order by descending"
           }
         ],
         "responses": {

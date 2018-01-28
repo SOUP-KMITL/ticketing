@@ -1,5 +1,6 @@
 package com.smartcity.collection;
 
+import java.lang.reflect.InvocationTargetException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -39,6 +40,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -56,9 +58,9 @@ public class CollectionController {
 	private MongoTemplate mongoTemplate = new MongoTemplate(
 			new SimpleMongoDbFactory(new MongoClient("mongo"), "CollectionModel"));
 	private String METADATA = "MetaData";
-	private final String USER_URL = "http://user-service:8080/api/v1/users";
-	private final String AC_URL = "http://access-control-service:8080/api/v1/accesscontrol";
-	private final String METERS_URL = "http://meter-service:8080/api/v1";
+	private final String USER_URL = System.getenv("USER_URL");
+	private final String AC_URL = System.getenv("AC_URL");
+	private final String METER_URL = System.getenv("METER_URL");
 
 	@GetMapping("/redirect")
 	public ResponseEntity<Object> redirect(HttpServletResponse resp) {
@@ -68,9 +70,7 @@ public class CollectionController {
 				.header("Authorization", header).build();
 	}
 
-	
-
-	@GetMapping("")
+	@GetMapping(value = { "", "/api/v1/collections" })
 	public ResponseEntity<Object> getMeta(Pageable pageable, String collectionName, String collectionId, String type,
 			Boolean open, String owner) {
 		Criteria criteria = new Criteria();
@@ -114,6 +114,7 @@ public class CollectionController {
 			Query query = new Query(Criteria.where("collectionId").is(collectionId));
 			CollectionModel col = mongoTemplate.findOne(query, CollectionModel.class, METADATA);
 			col.setIcon((String) json.getOrDefault("icon", col.getIcon()));
+			col.setEndPoint((JSONObject) json.getOrDefault("endPoint", col.getEndPoint()));
 			if (col.getOwner().equalsIgnoreCase((user.getString("userName")))) {
 				col.setOpen((boolean) json.get("isOpen"));
 				HttpResponse<String> res = Unirest.put(AC_URL + "/collections/{collectionId}/")
@@ -200,7 +201,7 @@ public class CollectionController {
 
 	@GetMapping("/{collectionId}")
 	public ResponseEntity<Object> getCollection(Pageable pageable, @PathVariable String collectionId,
-			@RequestHeader(value = "Authorization") String ticket) {
+			@RequestHeader(value = "Authorization") String ticket, @RequestParam Map<String, Object> allRequestParams) {
 		JSONObject jsonTicket = decrypt(ticket);
 		if (jsonTicket != null) {
 			if (isValidTicket(collectionId, jsonTicket)) {
@@ -211,7 +212,7 @@ public class CollectionController {
 					if (((String) endpoint.get("type")).equalsIgnoreCase("local")) {
 						Query q = new Query();
 						q.fields().exclude("_id");
-						List<JSONObject> res = retrieveData(pageable, collectionId);
+						List<JSONObject> res = retrieveData(pageable, collectionId, allRequestParams);
 						sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",
 								res.size(), res.toString().length());
 						return new ResponseEntity<>(res, HttpStatus.OK);
@@ -265,7 +266,7 @@ public class CollectionController {
 			@RequestHeader(value = "Authorization") String ticket, @RequestBody Object data) {
 		JSONObject jsonTicket = decrypt(ticket);
 		JSONArray arrayData = getReqBody(data);
-		if(arrayData == null) {
+		if (arrayData == null) {
 			return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
 		}
 		if (jsonTicket == null) {
@@ -274,9 +275,9 @@ public class CollectionController {
 		if (isValidTicket(collectionId, jsonTicket)
 				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))
 				&& mongoTemplate.collectionExists(collectionId)) {
-			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write", arrayData.size(),
-					arrayData.toString().length());
-			if(!storingData(collectionId, arrayData)) {
+			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write",
+					arrayData.size(), arrayData.toString().length());
+			if (!storingData(collectionId, arrayData)) {
 				return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
 			}
 			return new ResponseEntity<>(HttpStatus.CREATED);
@@ -295,8 +296,8 @@ public class CollectionController {
 		body.put("record", record);
 		body.put("size", size - 2);
 		try {
-			return Unirest.post(METERS_URL + "/meters/").header("Content-Type", "application/json")
-					.body(body.toJSONString()).asString();
+			return Unirest.post(METER_URL).header("Content-Type", "application/json").body(body.toJSONString())
+					.asString();
 		} catch (UnirestException e) {
 			e.printStackTrace();
 		}
@@ -337,7 +338,7 @@ public class CollectionController {
 		if (collection.getEncryptionLevel() == 2) {
 			try {
 				SecretKey key = getAesKey(collectionId);
-				arrayData.forEach(map->{
+				arrayData.forEach(map -> {
 					try {
 						JSONObject tmp = new JSONObject();
 						tmp.put("data", encryptData(map.toString(), key));
@@ -365,11 +366,25 @@ public class CollectionController {
 		}
 	}
 
-	private List<JSONObject> retrieveData(Pageable pageable, String collectionId) {
+	private List<JSONObject> retrieveData(Pageable pageable, String collectionId,
+			Map<String, Object> allRequestParams) {
 		CollectionModel collection = mongoTemplate.findById(collectionId, CollectionModel.class, METADATA);
 		Query q = new Query();
 		q.fields().exclude("_id");
 		q.with(pageable);
+		JSONObject tmp = mongoTemplate.findOne(new Query(), JSONObject.class, collectionId);
+		allRequestParams.keySet().forEach(key -> {
+			if (!("sortpagesize".toLowerCase().contains(key.toLowerCase()))) {
+				try {
+					q.addCriteria(Criteria.where(key).is(tmp.get(key).getClass().getMethod("valueOf", String.class)
+							.invoke(tmp.get(key), allRequestParams.get(key))));
+				} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException
+						| InvocationTargetException e) {
+					e.printStackTrace();
+				}
+			}
+		});
+		System.err.println(q);
 		List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
 		if (collection.getEncryptionLevel() == 2) {
 			SecretKey key;
@@ -448,19 +463,19 @@ public class CollectionController {
 			return null;
 		}
 	}
+
 	@SuppressWarnings("rawtypes")
-	private JSONArray getReqBody( Object json) {
+	private JSONArray getReqBody(Object json) {
 		JSONArray reqBody = new JSONArray();
 		try {
 			if (json.getClass() == LinkedHashMap.class) {
 				reqBody.add(new JSONObject((Map) json));
-			}
-			else {
-				((ArrayList)json).forEach(mapObject->{
+			} else {
+				((ArrayList) json).forEach(mapObject -> {
 					reqBody.add(new JSONObject((Map) mapObject));
 				});
-			}	
-		}catch (Exception e) {
+			}
+		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
 		}

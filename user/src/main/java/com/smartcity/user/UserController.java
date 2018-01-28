@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class UserController {
 	@Autowired
 	private UserModelRepository repository;
+	private final String AC_URL = System.getenv("AC_URL");
 
 	@GetMapping("/")
 	public @ResponseBody List<UserModel> getAllUser(String token, String userId) {
@@ -163,7 +164,7 @@ public class UserController {
 		json.put("userId", user.getUserId());
 		json.put("userName", user.getUserName());
 		try {
-			HttpResponse<String> res = Unirest.post("http://access-control-service:8080/api/v1/accesscontrol/users")
+			HttpResponse<String> res = Unirest.post(AC_URL+"/users")
 					.header("Content-Type", "application/json").body(json.toJSONString()).asString();
 			if (res.getStatus() >= 200 && res.getStatus() < 300) {
 				return true;

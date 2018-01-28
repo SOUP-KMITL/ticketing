@@ -20,10 +20,10 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 @CrossOrigin
 @RestController
 public class TicketController {
-	private String AC_URL = "http://access-control-service:8080/api/v1/accesscontrol";
-	private String COLLECTION_URL = "http://collection-service:8080/api/v1/collections";
-	private String USER_URL = "http://user-service:8080/api/v1/users";
-	private String CREDIT_URL = "http://credit-service:5000/credits";
+	private String AC_URL = System.getenv("AC_URL");
+	private String COLLECTION_URL = System.getenv("COLLECTION_URL");
+	private String USER_URL = System.getenv("USER_URL");
+	private String CREDIT_URL = System.getenv("CREDIT_URL");
 
 	@PostMapping("")
 	public ResponseEntity<Object> genTicket(@RequestHeader(value = "Authorization") String userToken,
@@ -50,10 +50,10 @@ public class TicketController {
 				JSONObject collectionObj = (JSONObject) json.get(0);
 				String collectionOwnerId = getUserIdByName((String) collectionObj.get("owner"));
 				if (role.equals("READ") && !(boolean) collectionObj.get("open")) {
-					return new ResponseEntity<Object>("1",HttpStatus.FORBIDDEN);
+					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 				}
 				if (!isUserCreditVaild(userId, collectionId, collectionOwnerId)) {
-					return new ResponseEntity<Object>("2",HttpStatus.FORBIDDEN);
+					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 				}
 				String ticketString;
 				ObjectMapper mapper = new ObjectMapper();
@@ -69,7 +69,7 @@ public class TicketController {
 								security.encrypt(ticketString.getBytes("utf-8")).toJSONString().getBytes("utf-8")),
 						HttpStatus.CREATED);
 			}
-			return new ResponseEntity<Object>("3",HttpStatus.FORBIDDEN);
+			return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -118,7 +118,6 @@ public class TicketController {
 		return role;
 	}
 
-	@SuppressWarnings("unchecked")
 	private boolean isUserCreditVaild(String userId, String collectionId, String ownerId) {
 //		JSONObject reqJson = new JSONObject();
 //		reqJson.put("from", userId);

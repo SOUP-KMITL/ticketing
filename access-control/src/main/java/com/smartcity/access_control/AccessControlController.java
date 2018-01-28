@@ -34,8 +34,8 @@ public class AccessControlController {
 	private String OWNER = "OWNER";
 	private String CONTRIBUTOR = "CONTRIBUTOR";
 	private String READ = "READ";
-	private final String USER_URL = "http://user-service:8080/api/v1/users";
-	private final String COLLECIONT_URL = "http://collection-service:8080/api/v1/collections";
+	private final String USER_URL = System.getenv("USER_URL");
+	private final String COLLECTION_URL = System.getenv("COLLECTION_URL");
 
 	@GetMapping(value = { "/hello" })
 	public ResponseEntity<Object> hello(HttpServletRequest request) {
@@ -51,7 +51,6 @@ public class AccessControlController {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	@GetMapping("/migrate")
 	public ResponseEntity<String> migrate() {
 		try {
@@ -61,7 +60,7 @@ public class AccessControlController {
 			user_array.forEach(user -> {
 				createUserNode((JSONObject) user);
 			});
-			HttpResponse<String> col_res = Unirest.get(COLLECIONT_URL).asString();
+			HttpResponse<String> col_res = Unirest.get(COLLECTION_URL).asString();
 			JSONArray col_array = (JSONArray) (new JSONParser()).parse(col_res.getBody());
 			col_array.forEach(col -> {
 				createCollectionNode((JSONObject) col);
@@ -215,7 +214,7 @@ public class AccessControlController {
 	private String getUserId(String userName) {
 		HttpResponse<String> res = null;
 		try {
-			res = Unirest.get(USER_URL + "{userName}").routeParam("userName", userName).asString();
+			res = Unirest.get(USER_URL + "/{userName}").routeParam("userName", userName).asString();
 		} catch (UnirestException e) {
 			e.printStackTrace();
 		}
