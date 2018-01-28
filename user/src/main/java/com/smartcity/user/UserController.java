@@ -52,7 +52,7 @@ public class UserController {
 				String[] userPass = new String(Base64.getDecoder().decode(authorization.split(" ")[1])).split(":");
 				List<UserModel> list = repository.findByuserName(userPass[0]);
 				if (list.isEmpty()) {
-					return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+					return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 				}
 				UserModel user = list.get(0);
 				if (isValid(authorization, user)) {

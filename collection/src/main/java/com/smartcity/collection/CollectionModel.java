@@ -12,6 +12,8 @@ public class CollectionModel {
 	private String collectionId;
 
 	private String collectionName;
+	private String description;
+	private String icon;
 	private JSONObject endPoint;
 	private String type;
 	private int encryptionLevel;
@@ -23,11 +25,13 @@ public class CollectionModel {
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id, String collectionName, JSONObject endPoint, String type, int encryptionLevel,
+	public CollectionModel(String id, String collectionName,String description,String icon, JSONObject endPoint, String type, int encryptionLevel,
 			String owner, JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
 		this.isOpen = isOpen;
+		this.description = description;
+		this.icon = icon;
 		this.endPoint = endPoint;
 		this.type = type;
 		if (encryptionLevel > 2 || encryptionLevel < 0) {
@@ -109,5 +113,21 @@ public class CollectionModel {
 
 	public void setEncryptionLevel(int encryptionLevel) {
 		this.encryptionLevel = encryptionLevel;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
+
+	public String getIcon() {
+		return icon;
+	}
+
+	public void setIcon(String icon) {
+		this.icon = icon;
 	}
 }

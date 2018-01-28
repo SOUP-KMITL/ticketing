@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserNodeRepository extends GraphRepository<UserNode> {
 	UserNode findByUserId(String userId);
-
+	UserNode findByUserName(String userName);
 	@Query("match(u:UserNode)-[r:Role]->(c:CollectionNode) "
 			+ "where u.userId = {userId} and r.role = {type} and c.collectionId={collectionId}" + "return true")
 	boolean checkRule(@Param(value = "userId") String userId, @Param(value = "type") String type,

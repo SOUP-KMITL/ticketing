@@ -8,7 +8,7 @@ services:
     extra_hosts:
       - "mongo:172.16.0.6"
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: any
 
@@ -20,7 +20,7 @@ services:
     extra_hosts:
       - "mongo:172.16.0.6"
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: any
 
@@ -31,10 +31,8 @@ services:
       - default
     extra_hosts:
       - "mongo:172.16.0.6"
-    # volumes:
-      # - '/home/centos/ha-storage/key:/key'
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: any
 
@@ -46,7 +44,7 @@ services:
     extra_hosts:
       - "mongo:172.16.0.6"
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: any
 
@@ -57,32 +55,31 @@ services:
       - default
     extra_hosts:
       - "mongo:172.16.0.6"
-    # volumes:
-      # - '/home/centos/ha-storage/key:/key'
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: any
   kong:
     image: worker-01:5000/kong
-    # image: kong
     build: ./kong
     networks: 
       - default
     depends_on:
       - kong-database
     ports:
-      # - '80:8000'
+      - '8001:8001'
       - '80:80'
       - '443:443'
     environment:
       - KONG_DATABASE=postgres
       - KONG_PG_HOST=kong-database
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+      - KONG_ADMIN_LISTEN_SSL=0.0.0.0:8444
     deploy:
       restart_policy:
         condition: any
     volumes: 
-      - '/home/centos/ha-storage/cert:/cert'
+      - '/home/centos/glusterdata/cert:/cert'
 
   kong-dashboard:
     image: 'pgbi/kong-dashboard:v2'
@@ -103,7 +100,7 @@ services:
     networks: 
       - default
     volumes:
-      - '/home/centos/ha-storage/neo4j:/data'
+      - '/home/centos/glusterdata/neo4j/data:/data'
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -125,7 +122,7 @@ services:
     networks: 
       - default
     volumes:
-      - '/home/centos/ha-storage/kong-data:/var/lib/postgresql/data'
+      - '/home/centos/glusterdata/kong-data:/var/lib/postgresql/data'
     deploy:
       restart_policy:
         condition: any
@@ -136,9 +133,9 @@ services:
     networks: 
       - default
     environment:
-      - SWAGGER_JSON=/doc/data-exchange/data-exchage-swagger.json
+      - SWAGGER_JSON=/doc/data-exchange/data-exchange-swagger.json
     deploy:
-      replicas: 2
+      replicas: 1
       restart_policy:
         condition: any
 

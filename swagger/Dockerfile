@@ -1,5 +1,5 @@
 FROM swaggerapi/swagger-ui
-COPY data-exchage-swagger.json /doc/data-exchange/data-exchage-swagger.json
+COPY data-exchange-swagger.json /doc/data-exchange/data-exchange-swagger.json
 RUN sed -i '/presets: \[/ i \\t validatorUrl: null,' /usr/share/nginx/html/index.html && \
     sed -i 's/Swagger UI/Data Exchange Swagger/g' /usr/share/nginx/html/index.html &&\
     sed -i 's/location \//location \/doc\/data-exchange/g' /etc/nginx/nginx.conf && \

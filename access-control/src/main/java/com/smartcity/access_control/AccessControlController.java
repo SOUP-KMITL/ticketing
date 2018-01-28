@@ -1,5 +1,7 @@
 package com.smartcity.access_control;
 
+import javax.servlet.http.HttpServletRequest;
+
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -32,6 +34,13 @@ public class AccessControlController {
 	private String OWNER = "OWNER";
 	private String CONTRIBUTOR = "CONTRIBUTOR";
 	private String READ = "READ";
+	private final String USER_URL = "http://user-service:8080/api/v1/users";
+	private final String COLLECIONT_URL = "http://collection-service:8080/api/v1/collections";
+
+	@GetMapping(value = { "/hello" })
+	public ResponseEntity<Object> hello(HttpServletRequest request) {
+		return new ResponseEntity<>("hello", HttpStatus.OK);
+	}
 
 	@GetMapping("/")
 	public @ResponseBody String findRole(String userId, String collectionId) {
@@ -39,6 +48,28 @@ public class AccessControlController {
 			return userRepo.findRole(userId, collectionId).getRole();
 		} catch (Exception e) {
 			return null;
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	@GetMapping("/migrate")
+	public ResponseEntity<String> migrate() {
+		try {
+			HttpResponse<String> user_res = Unirest.get(USER_URL).asString();
+			JSONParser parser = new JSONParser();
+			JSONArray user_array = (JSONArray) parser.parse(user_res.getBody());
+			user_array.forEach(user -> {
+				createUserNode((JSONObject) user);
+			});
+			HttpResponse<String> col_res = Unirest.get(COLLECIONT_URL).asString();
+			JSONArray col_array = (JSONArray) (new JSONParser()).parse(col_res.getBody());
+			col_array.forEach(col -> {
+				createCollectionNode((JSONObject) col);
+			});
+			return new ResponseEntity<>(HttpStatus.OK);
+		} catch (UnirestException | ParseException e) {
+			e.printStackTrace();
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
 
@@ -57,8 +88,12 @@ public class AccessControlController {
 	public ResponseEntity<Object> createRelationship(@RequestBody JSONObject json) {
 		String type = ((String) json.get("type")).toUpperCase();
 		UserNode user = userRepo.findByUserId((String) json.get("userId"));
+		if (user == null) {
+			user = userRepo.findByUserName((String) json.get("owner"));
+			type = "OWNER";
+		}
 		CollectionNode collection = collectionRepo.findByCollectionId((String) json.get("collectionId"));
-		Role role = userRepo.findRole(user.userId, collection.collectionId);
+		Role role = userRepo.findRole(user.userId, collection.getCollectionId());
 		role.setRole(type);
 		userRepo.save(user);
 		return new ResponseEntity<>(HttpStatus.CREATED);
@@ -118,7 +153,10 @@ public class AccessControlController {
 	@PostMapping("/users")
 	public ResponseEntity<Object> createUserNode(@RequestBody JSONObject json) {
 		UserNode user = new UserNode((String) json.get("userId"), (String) json.get("userName"));
-		Iterable<CollectionNode> collections = collectionRepo.findAll();
+		if (userRepo.findByUserId(user.userId) != null) {
+			return new ResponseEntity<>(HttpStatus.CONFLICT);
+		}
+		Iterable<CollectionNode> collections = collectionRepo.findAllOpenCollection();
 		if (collections != null) {
 			collections.forEach(c -> user.addRole(new Role(READ, user, c)));
 		}
@@ -128,20 +166,43 @@ public class AccessControlController {
 
 	@PostMapping("/collections")
 	public ResponseEntity<Object> createCollectionNode(@RequestBody JSONObject json) {
-		CollectionNode collection = new CollectionNode((String) json.get("collectionId"));
-		if ((boolean) json.get("isOpen")) {
+		boolean isOpen = ((boolean) json.getOrDefault("isOpen", json.getOrDefault("open", true)));
+		CollectionNode collection = new CollectionNode((String) json.get("collectionId"), isOpen);
+		if (collectionRepo.findByCollectionId(collection.getCollectionId()) != null) {
+			return new ResponseEntity<>(HttpStatus.CONFLICT);
+		}
+		if (isOpen) {
 			Iterable<UserNode> users = userRepo.findAll();
 			if (users != null) {
 				users.forEach(user -> user.addRole(new Role(READ, user, collection)));
 				userRepo.save(users);
 			}
+			createRelationship(json);
+		} else {
+			UserNode user = userRepo.findByUserId((String) json.get("userId"));
+			if(user == null) {
+				user = userRepo.findByUserName((String)json.get("owner"));
+			}
+			user.addRole(new Role(OWNER, user, collection));
+			userRepo.save(user);
+			collectionRepo.save(collection);
 		}
-		UserNode user = userRepo.findByUserId((String) json.get("userId"));
-		user.addRole(new Role(OWNER, user, collection));
-		userRepo.save(user);
-		collectionRepo.save(collection);
 		return new ResponseEntity<>(HttpStatus.CREATED);
 
+	}
+
+	@PutMapping("/collections/{collectionId}")
+	public ResponseEntity<String> changeOpenCollection(@PathVariable String collectionId,
+			@RequestBody JSONObject json) {
+		try {
+			boolean isOpen = (boolean) json.get("isOpen");
+			if (changeOpenCollection(collectionId, isOpen)) {
+				return new ResponseEntity<String>(HttpStatus.OK);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return new ResponseEntity<String>(HttpStatus.BAD_REQUEST);
 	}
 
 	@DeleteMapping("/collections/{collectionId}")
@@ -154,8 +215,7 @@ public class AccessControlController {
 	private String getUserId(String userName) {
 		HttpResponse<String> res = null;
 		try {
-			res = Unirest.get("http://user-service:8080/api/v1/users/{userName}").routeParam("userName", userName)
-					.asString();
+			res = Unirest.get(USER_URL + "{userName}").routeParam("userName", userName).asString();
 		} catch (UnirestException e) {
 			e.printStackTrace();
 		}
@@ -175,7 +235,7 @@ public class AccessControlController {
 	private JSONObject userAuth(String userToken) {
 		HttpResponse<String> res = null;
 		try {
-			res = Unirest.get("http://user-service:8080/api/v1/users").queryString("token", userToken).asString();
+			res = Unirest.get(USER_URL).queryString("token", userToken).asString();
 		} catch (UnirestException e) {
 			e.printStackTrace();
 		}
@@ -189,6 +249,24 @@ public class AccessControlController {
 		}
 		user = (JSONObject) array.get(0);
 		return user;
+	}
+
+	private boolean changeOpenCollection(String collectionId, boolean isOpen) {
+		try {
+			CollectionNode col = collectionRepo.findByCollectionId(collectionId);
+			col.setOpen(isOpen);
+			collectionRepo.save(col);
+			if (isOpen) {
+				collectionRepo.createAllReadRelationship(collectionId);
+			} else {
+				collectionRepo.deleteAllNotOwnerRelationship(collectionId);
+			}
+
+			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
 	}
 
 }

@@ -50,10 +50,10 @@ public class TicketController {
 				JSONObject collectionObj = (JSONObject) json.get(0);
 				String collectionOwnerId = getUserIdByName((String) collectionObj.get("owner"));
 				if (role.equals("READ") && !(boolean) collectionObj.get("open")) {
-					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
+					return new ResponseEntity<Object>("1",HttpStatus.FORBIDDEN);
 				}
 				if (!isUserCreditVaild(userId, collectionId, collectionOwnerId)) {
-					return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
+					return new ResponseEntity<Object>("2",HttpStatus.FORBIDDEN);
 				}
 				String ticketString;
 				ObjectMapper mapper = new ObjectMapper();
@@ -69,7 +69,7 @@ public class TicketController {
 								security.encrypt(ticketString.getBytes("utf-8")).toJSONString().getBytes("utf-8")),
 						HttpStatus.CREATED);
 			}
-			return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
+			return new ResponseEntity<Object>("3",HttpStatus.FORBIDDEN);
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -105,6 +105,8 @@ public class TicketController {
 
 	private String getRole(String userId, String collectionId) {
 		HttpResponse<String> res;
+		System.err.println(userId);
+		System.err.println(collectionId);
 		try {
 			res = Unirest.get(AC_URL).queryString("userId", userId).queryString("collectionId", collectionId)
 					.asString();
