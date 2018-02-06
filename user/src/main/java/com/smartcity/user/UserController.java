@@ -78,6 +78,7 @@ public class UserController {
 		}
 		if (repository.findByuserName(user.getUserName()).isEmpty()) {
 			if (sendUserToAccessControl(user)) {
+				user.setAccessToken(user.generateAccessToken());
 				repository.save(user);
 				return new ResponseEntity<>(HttpStatus.CREATED);
 			} else {
@@ -174,5 +175,6 @@ public class UserController {
 		}
 		return false;
 	}
+
 
 }

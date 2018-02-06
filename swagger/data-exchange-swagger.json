@@ -442,6 +442,50 @@
             "description": "Not Found"
           }
         }
+      },
+      "put": {
+        "tags": [
+          "collections"
+        ],
+        "summary": "Update colelction Metadata",
+        "parameters": [
+          {
+            "name": "collectionId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "$ref": "#/definitions/Collection_update"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation success"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorizated"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "user_token": []
+          }
+        ]
       }
     },
     "/tickets": {
@@ -698,6 +742,20 @@
         },
         "example": {
           "type": "object"
+        },
+        "isOpen": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Collection_update": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
         },
         "isOpen": {
           "type": "boolean"

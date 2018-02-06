@@ -113,10 +113,12 @@ public class CollectionController {
 		try {
 			Query query = new Query(Criteria.where("collectionId").is(collectionId));
 			CollectionModel col = mongoTemplate.findOne(query, CollectionModel.class, METADATA);
-			col.setIcon((String) json.getOrDefault("icon", col.getIcon()));
-			col.setEndPoint((JSONObject) json.getOrDefault("endPoint", col.getEndPoint()));
 			if (col.getOwner().equalsIgnoreCase((user.getString("userName")))) {
 				col.setOpen((boolean) json.get("isOpen"));
+				col.setIcon((String) json.getOrDefault("icon", col.getIcon()));
+				col.setDescription((String) json.getOrDefault("description", col.getDescription()));
+				// col.setEndPoint((JSONObject) json.getOrDefault("endPoint",
+				// col.getEndPoint()));
 				HttpResponse<String> res = Unirest.put(AC_URL + "/collections/{collectionId}/")
 						.header("Content-Type", "application/json").routeParam("collectionId", collectionId)
 						.body(json.toJSONString()).asString();
@@ -140,10 +142,22 @@ public class CollectionController {
 			@RequestBody JSONObject json) {
 		try {
 			HttpResponse<JsonNode> res = Unirest.get(USER_URL).queryString("token", userToken).asJson();
+			if (res.getBody().getArray().isNull(0)) {
+				return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+			}
 			String userId = (String) res.getBody().getArray().getJSONObject(0).get("userId");
 			String userName = (String) res.getBody().getArray().getJSONObject(0).get("userName");
-			JSONObject example = new JSONObject((Map) json.get("example"));
-			JSONObject endPoint = new JSONObject((Map) json.get("endPoint"));
+			JSONObject example = null;
+			JSONObject endPoint = null;
+
+			try {
+				example = new JSONObject((Map) json.get("example"));
+				endPoint = new JSONObject((Map) json.get("endPoint"));
+			} catch (Exception e) {
+				e.printStackTrace();
+				System.err.println("ERROR :" + json);
+				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+			}
 			String collectionId = DigestUtils.sha256Hex((String) json.get("collectionName") + userId);
 			int encryptionLevel = (int) json.getOrDefault("encryptionLevel", 0);
 			if (!mongoTemplate
@@ -323,6 +337,7 @@ public class CollectionController {
 			json.replace("key", Base64.getUrlDecoder().decode((String) json.get("key")));
 			json.replace("data", Base64.getUrlDecoder().decode((String) json.get("data")));
 			String dataString = new String(security.decrypt((byte[]) json.get("key"), (byte[]) json.get("data")));
+			System.err.println(dataString);
 			JSONParser parser1 = new JSONParser();
 			json = (JSONObject) parser1.parse(dataString);
 			return json;
@@ -380,11 +395,9 @@ public class CollectionController {
 							.invoke(tmp.get(key), allRequestParams.get(key))));
 				} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException
 						| InvocationTargetException e) {
-					e.printStackTrace();
 				}
 			}
 		});
-		System.err.println(q);
 		List<JSONObject> res = mongoTemplate.find(q, JSONObject.class, collectionId);
 		if (collection.getEncryptionLevel() == 2) {
 			SecretKey key;

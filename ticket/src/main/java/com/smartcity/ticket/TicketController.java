@@ -105,8 +105,6 @@ public class TicketController {
 
 	private String getRole(String userId, String collectionId) {
 		HttpResponse<String> res;
-		System.err.println(userId);
-		System.err.println(collectionId);
 		try {
 			res = Unirest.get(AC_URL).queryString("userId", userId).queryString("collectionId", collectionId)
 					.asString();
@@ -119,20 +117,20 @@ public class TicketController {
 	}
 
 	private boolean isUserCreditVaild(String userId, String collectionId, String ownerId) {
-//		JSONObject reqJson = new JSONObject();
-//		reqJson.put("from", userId);
-//		reqJson.put("to", ownerId);
-//		reqJson.put("type", "TCKT");
-//		reqJson.put("collectionId", collectionId);
-//		try {
-//			HttpResponse<String> res = Unirest.post(CREDIT_URL + "/transactions/")
-//					.header("Content-Type", "application/json").body(reqJson.toJSONString()).asString();
-//			if (res.getStatus() == 200) {
-//				return true;
-//			}
-//		} catch (UnirestException e) {
-//			e.printStackTrace();
-//		}
+		JSONObject reqJson = new JSONObject();
+		reqJson.put("from", userId);
+		reqJson.put("to", ownerId);
+		reqJson.put("type", "TCKT");
+		reqJson.put("collectionId", collectionId);
+		try {
+			HttpResponse<String> res = Unirest.post(CREDIT_URL + "/transactions/")
+					.header("Content-Type", "application/json").body(reqJson.toJSONString()).asString();
+			if (res.getStatus() == 200) {
+				return true;
+			}
+		} catch (UnirestException e) {
+			e.printStackTrace();
+		}
 		return true;
 	}
 

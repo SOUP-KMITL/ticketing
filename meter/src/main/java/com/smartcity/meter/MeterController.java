@@ -3,6 +3,7 @@ package com.smartcity.meter;
 import java.util.Date;
 import java.util.List;
 
+import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -18,6 +19,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.JsonNode;
+import com.mashape.unirest.http.Unirest;
+import com.mashape.unirest.http.exceptions.UnirestException;
 import com.mongodb.MongoClient;
 @CrossOrigin
 @RestController
@@ -25,7 +30,7 @@ public class MeterController {
 	@Autowired
 	private MongoTemplate mongoTemplate = new MongoTemplate(
 			new SimpleMongoDbFactory(new MongoClient("mongo"), "MeterModel"));
-
+	private final String USER_URL = System.getenv("USER_URL");
 	@GetMapping("")
 	public @ResponseBody List<MeterModel> getAll(String userId, String collectionId, String[] collectionIds,
 			Boolean open, Long timestamp) {
@@ -58,6 +63,15 @@ public class MeterController {
 		mongoTemplate.insert(new MeterModel(meter.getUserId(), meter.getCollectionId(), meter.isOpen(), meter.getType(),
 				meter.getRecord(), meter.getSize()));
 		return new ResponseEntity(HttpStatus.CREATED);
+	}
+	private org.json.JSONObject getUserByToken(String userToken) {
+		try {
+			HttpResponse<JsonNode> res = Unirest.get(USER_URL).queryString("token", userToken).asJson();
+			return res.getBody().getArray().getJSONObject(0);
+		} catch (UnirestException | JSONException e) {
+			e.printStackTrace();
+			return null;
+		}
 	}
 
 }

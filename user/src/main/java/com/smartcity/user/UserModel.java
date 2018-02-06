@@ -97,7 +97,7 @@ public class UserModel {
 	}
 
 	public void setUserId(String userName) {
-		this.userId = Hashing.sha256().hashString(userName + new Date().getTime(), StandardCharsets.UTF_8).toString();
+		this.userId = Hashing.sha256().hashString(userName + this.getEmail() + new Date().getTime(), StandardCharsets.UTF_8).toString();
 	}
 
 	public String getFirstName() {
