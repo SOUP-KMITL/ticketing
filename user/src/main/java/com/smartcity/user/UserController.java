@@ -7,13 +7,16 @@ import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
 
 import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -123,19 +126,33 @@ public class UserController {
 		return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 	}
 
-	@PutMapping("/{userName}/picture")
-	public ResponseEntity<Object> updateProfilePicture(@PathVariable String userName,
-			@RequestParam MultipartFile picture, @RequestHeader(value = "Authorization") String authorization) {
+	@GetMapping(value = "/{userName}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
+	public ResponseEntity<InputStreamResource> getThumbnail(@PathVariable String userName) {
+		try {
+			String picture = repository.findByuserName(userName).get(0).getThumbnail();
+			byte[] pictureBtyes = Base64.getDecoder().decode(picture);
+			ByteArrayInputStream targetStream = new ByteArrayInputStream(pictureBtyes);
+			InputStreamResource isr = new InputStreamResource(targetStream);
+			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(isr);
+
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+	}
+
+	@PutMapping("/{userName}/thumbnail")
+	public ResponseEntity<Object> updateThumbnail(@PathVariable String userName,
+			@RequestParam MultipartFile thumbnail, @RequestHeader(value = "Authorization") String authorization) {
 		byte[] bytes;
-		if (picture.isEmpty()) {
+		if (thumbnail.isEmpty()) {
 			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 		}
 		try {
-			bytes = picture.getBytes();
+			bytes = thumbnail.getBytes();
 			String imageString = Base64.getEncoder().encodeToString(bytes);
 			UserModel user = (UserModel) login(authorization).getBody();
 			if (user.getUserName().equalsIgnoreCase(userName)) {
-				user.setProfilePicture(imageString);
+				user.setThumbnail(imageString);
 				repository.save(user);
 				return new ResponseEntity<>(HttpStatus.OK);
 			}
@@ -165,8 +182,8 @@ public class UserController {
 		json.put("userId", user.getUserId());
 		json.put("userName", user.getUserName());
 		try {
-			HttpResponse<String> res = Unirest.post(AC_URL+"/users")
-					.header("Content-Type", "application/json").body(json.toJSONString()).asString();
+			HttpResponse<String> res = Unirest.post(AC_URL + "/users").header("Content-Type", "application/json")
+					.body(json.toJSONString()).asString();
 			if (res.getStatus() >= 200 && res.getStatus() < 300) {
 				return true;
 			}
@@ -175,6 +192,5 @@ public class UserController {
 		}
 		return false;
 	}
-
 
 }

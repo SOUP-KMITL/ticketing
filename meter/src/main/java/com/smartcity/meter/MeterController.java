@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
@@ -32,16 +33,18 @@ public class MeterController {
 			new SimpleMongoDbFactory(new MongoClient("mongo"), "MeterModel"));
 	private final String USER_URL = System.getenv("USER_URL");
 	@GetMapping("")
-	public @ResponseBody List<MeterModel> getAll(String userId, String collectionId, String[] collectionIds,
-			Boolean open, Long timestamp) {
+	public @ResponseBody List<MeterModel> getAll(String userType,String userId, String collectionId, String[] collectionIds,
+			Boolean open, Long timestamp,Pageable pageable) {
 		Query query = new Query();
 		Criteria criteria = new Criteria();
+		if (userType != null) {
+			criteria = criteria.and("userType").is(userType);
+		}
 		if (userId != null) {
 			criteria = criteria.and("userId").is(userId);
 		}
 		if (open != null) {
 			criteria = criteria.and("isOpen").is(open);
-
 		}
 		if (collectionId != null) {
 			criteria = criteria.and("collectionId").is(collectionId);
@@ -53,6 +56,7 @@ public class MeterController {
 			criteria = criteria.and("timestamp").in((Object[]) collectionIds);
 		}
 		query.addCriteria(criteria).with(new Sort(Sort.Direction.DESC, "timestamp"));
+		query.with(pageable);
 		return mongoTemplate.find(query, MeterModel.class);
 
 	}
@@ -60,7 +64,7 @@ public class MeterController {
 	@SuppressWarnings("rawtypes")
 	@PostMapping("")
 	public ResponseEntity newMeter(@RequestBody MeterModel meter) {
-		mongoTemplate.insert(new MeterModel(meter.getUserId(), meter.getCollectionId(), meter.isOpen(), meter.getType(),
+		mongoTemplate.insert(new MeterModel(meter.getUserType(),meter.getUserId(), meter.getCollectionId(), meter.isOpen(), meter.getType(),
 				meter.getRecord(), meter.getSize()));
 		return new ResponseEntity(HttpStatus.CREATED);
 	}

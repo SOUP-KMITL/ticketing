@@ -78,10 +78,10 @@
         },
         "security": [
           {
-            "basic_auth": []
+            "basicAuth": []
           },
           {
-            "user_token": []
+            "userToken": []
           }
         ]
       }
@@ -114,7 +114,7 @@
         },
         "security": [
           {
-            "basic_auth": []
+            "basicAuth": []
           }
         ]
       },
@@ -145,12 +145,12 @@
         },
         "security": [
           {
-            "basic_auth": []
+            "basicAuth": []
           }
         ]
       }
     },
-    "/users/{userName}/picture": {
+    "/users/{userName}/thumbnail": {
       "put": {
         "tags": [
           "users"
@@ -168,9 +168,9 @@
           },
           {
             "in": "formData",
-            "name": "picture",
+            "name": "thumbnail",
             "type": "file",
-            "description": "Profile image in jpg format only."
+            "description": "Profile image in png format only."
           }
         ],
         "responses": {
@@ -183,10 +183,7 @@
         },
         "security": [
           {
-            "basic_auth": []
-          },
-          {
-            "user_token": []
+            "userToken": []
           }
         ]
       }
@@ -281,7 +278,7 @@
         },
         "security": [
           {
-            "user_token": []
+            "userToken": []
           }
         ]
       }
@@ -409,7 +406,7 @@
         },
         "security": [
           {
-            "user_token": []
+            "userToken": []
           }
         ]
       }
@@ -483,7 +480,45 @@
         },
         "security": [
           {
-            "user_token": []
+            "userToken": []
+          }
+        ]
+      }
+    },
+    "/collections/{collectionId}/thumbnail": {
+      "put": {
+        "tags": [
+          "collections"
+        ],
+        "summary": "update collection picture",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "parameters": [
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "formData",
+            "name": "thumbnail",
+            "type": "file",
+            "description": "Profile image in png format only."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "userToken": []
           }
         ]
       }
@@ -523,7 +558,7 @@
         },
         "security": [
           {
-            "user_token": []
+            "userToken": []
           }
         ]
       }
@@ -561,8 +596,8 @@
     },
     "/accesscontrol": {
       "put": {
-        "summary": "Change a user role",
-        "description": "Change a user role",
+        "summary": "Change or Create role",
+        "description": "Change or Create role",
         "tags": [
           "access control"
         ],
@@ -587,19 +622,62 @@
           },
           "403": {
             "description": "Forbidden"
-          },
-          "404": {
-            "description": "Not Found"
           }
         },
         "security": [
           {
-            "user_token": []
+            "userToken": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete role",
+        "description": "Delete role",
+        "tags": [
+          "access control"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "userName": {
+                  "type": "string"
+                },
+                "collectionId": {
+                  "type": "string"
+                },
+                "serviceId": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "operation success",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "userToken": []
           }
         ]
       }
     },
-    "/accesscontrol/{collectionId}": {
+    "/accesscontrol/collections/{collectionId}": {
       "get": {
         "summary": "get role for collection",
         "tags": [
@@ -622,12 +700,45 @@
             }
           },
           "401": {
-            "description": "UNauthorized"
+            "description": "Unauthorized"
           }
         },
         "security": [
           {
-            "user_token": []
+            "userToken": []
+          }
+        ]
+      }
+    },
+    "/accesscontrol/services/{serviceId}": {
+      "get": {
+        "summary": "get role for service",
+        "tags": [
+          "access control"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "serviceId",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "string",
+              "description": "role of user"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "userToken": []
           }
         ]
       }
@@ -664,7 +775,8 @@
           "type": "string"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "description": "[\"timeseries\"|\"geotemporal\"|\"keyvalue\"]"
         },
         "encryptionLevel": {
           "type": "integer",
@@ -674,7 +786,28 @@
         "example": {
           "type": "object"
         },
-        "timestamp": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "column name"
+              },
+              "type": {
+                "type": "string",
+                "description": "[\"varchar\"|\"int\"|\"bigint\"|\"double\"|\"text\"|\"timestamp\"]"
+              },
+              "indexed": {
+                "type": "boolean",
+                "description": "[true|false]"
+              }
+            }
+          },
+          "description": "For 'timeseries' must have column 'ts' type 'timestamp' and for 'geotemporal' must have addition column 'lat' and 'lng' type 'double'"
+        },
+        "createdAt": {
           "type": "number"
         },
         "isOpen": {
@@ -733,7 +866,8 @@
           }
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "description": "[\"timeseries\"|\"geotemporal\"|\"keyvalue\"]"
         },
         "encryptionLevel": {
           "type": "integer",
@@ -742,6 +876,27 @@
         },
         "example": {
           "type": "object"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "column name"
+              },
+              "type": {
+                "type": "string",
+                "description": "[\"varchar\"|\"int\"|\"bigint\"|\"double\"|\"text\"|\"timestamp\"]"
+              },
+              "indexed": {
+                "type": "boolean",
+                "description": "[true|false]"
+              }
+            }
+          },
+          "description": "For 'timeseries' must have column 'ts' type 'timestamp' and for 'geotemporal' must have addition column 'lat' and 'lng' type 'double'"
         },
         "isOpen": {
           "type": "boolean"
@@ -752,9 +907,6 @@
       "type": "object",
       "properties": {
         "description": {
-          "type": "string"
-        },
-        "icon": {
           "type": "string"
         },
         "isOpen": {
@@ -816,7 +968,11 @@
         },
         "collectionId": {
           "type": "string",
-          "description": "collectionId"
+          "description": "(Optional)collectionId"
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "(Optional)serviceId"
         },
         "role": {
           "type": "string",
@@ -826,10 +982,10 @@
     }
   },
   "securityDefinitions": {
-    "basic_auth": {
+    "basicAuth": {
       "type": "basic"
     },
-    "user_token": {
+    "userToken": {
       "type": "apiKey",
       "name": "Authorization",
       "in": "header",

@@ -2,10 +2,13 @@ package com.smartcity.collection;
 
 import java.util.Date;
 
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
+@Document(collection = "MetaData")
 public class CollectionModel {
 	@Id
 	@Indexed
@@ -13,34 +16,36 @@ public class CollectionModel {
 
 	private String collectionName;
 	private String description;
-	private String icon;
+	private String thumbnail;
 	private JSONObject endPoint;
 	private String type;
+	private JSONArray columns;
 	private int encryptionLevel;
 	private String owner;
 	private JSONObject example;
-	private Date timestamp;
+	private Date createdAt;
 	private boolean isOpen;
 
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id, String collectionName,String description,String icon, JSONObject endPoint, String type, int encryptionLevel,
-			String owner, JSONObject example, boolean isOpen) {
+	public CollectionModel(String id, String collectionName, String description, String thumbnail, JSONObject endPoint,
+			String type, JSONArray columns, int encryptionLevel, String owner, JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
 		this.isOpen = isOpen;
 		this.description = description;
-		this.icon = icon;
+		this.thumbnail = thumbnail;
 		this.endPoint = endPoint;
 		this.type = type;
+		this.columns = columns;
 		if (encryptionLevel > 2 || encryptionLevel < 0) {
 			this.encryptionLevel = 0;
 		}
 		this.encryptionLevel = encryptionLevel;
 		this.owner = owner;
 		this.example = example;
-		this.setTimestamp(new Date());
+		this.setCreatedAt(new Date());
 	}
 
 	public String getCollectionId() {
@@ -83,14 +88,6 @@ public class CollectionModel {
 		this.example = example;
 	}
 
-	public Date getTimestamp() {
-		return timestamp;
-	}
-
-	public void setTimestamp(Date timestamp) {
-		this.timestamp = timestamp;
-	}
-
 	public boolean isOpen() {
 		return isOpen;
 	}
@@ -123,11 +120,27 @@ public class CollectionModel {
 		this.description = description;
 	}
 
-	public String getIcon() {
-		return icon;
+	public String getThumbnail() {
+		return thumbnail;
 	}
 
-	public void setIcon(String icon) {
-		this.icon = icon;
+	public void setThumbnail(String icon) {
+		this.thumbnail = icon;
+	}
+
+	public Date getCreatedAt() {
+		return createdAt;
+	}
+
+	public void setCreatedAt(Date createdAt) {
+		this.createdAt = createdAt;
+	}
+
+	public JSONArray getColumns() {
+		return columns;
+	}
+
+	public void setColumns(JSONArray columns) {
+		this.columns = columns;
 	}
 }

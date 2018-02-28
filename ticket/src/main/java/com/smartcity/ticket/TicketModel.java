@@ -2,14 +2,13 @@ package com.smartcity.ticket;
 
 import java.util.Calendar;
 import java.util.Date;
-
-import org.apache.commons.codec.digest.DigestUtils;
+import java.util.UUID;
 
 public class TicketModel {
 	private String ticketId;
+	private String userType;
 	private String userId;
-	private String collectionId;
-	private String collectionOwnerId;
+	private String targetId;
 	private String role;
 	private Date expire;
 	private Date timstamp;
@@ -18,29 +17,29 @@ public class TicketModel {
 
 	}
 
-	public TicketModel(String userId, String collectionId, String collectionOwnerId, String role) {
+	public TicketModel(String userType,String userId, String targetId, String role) {
 		Date date = new Date();
 		Calendar c = Calendar.getInstance();
 		c.setTime(date);
 		c.add(Calendar.DATE, 180);
-		this.ticketId = DigestUtils.sha256Hex(userId + collectionId + date.getTime());
+		this.ticketId = UUID.randomUUID().toString();
 		this.userId = userId;
-		this.collectionId = collectionId;
-		this.collectionOwnerId = collectionOwnerId;
+		this.userType = userType;
+		this.setTargetId(targetId);
 		this.role = role;
 		this.expire = c.getTime();
 		this.timstamp = date;
 	}
 
-	public TicketModel(String userId, String collectionId, String collectionOwnerId, String role, int expire) {
+	public TicketModel(String userId,String userType, String targetId,  String role, int expire) {
 		Date date = new Date();
 		Calendar c = Calendar.getInstance();
 		c.setTime(date);
 		c.add(Calendar.DATE, expire);
-		this.ticketId = DigestUtils.sha256Hex(userId + collectionId + date.getTime());
+		this.ticketId = UUID.randomUUID().toString();
 		this.userId = userId;
-		this.collectionId = collectionId;
-		this.collectionOwnerId = collectionOwnerId;
+		this.userType = userType;
+		this.setTargetId(targetId);
 		this.role = role;
 		this.expire = c.getTime();
 		this.timstamp = date;
@@ -62,13 +61,6 @@ public class TicketModel {
 		this.userId = userId;
 	}
 
-	public String getCollectionId() {
-		return collectionId;
-	}
-
-	public void setCollectionId(String collectionId) {
-		this.collectionId = collectionId;
-	}
 
 	public String getRole() {
 		return role;
@@ -94,12 +86,22 @@ public class TicketModel {
 		this.expire = expire;
 	}
 
-	public String getCollectionOwnerId() {
-		return collectionOwnerId;
+	public String getUserType() {
+		return userType;
 	}
 
-	public void setCollectionOwnerId(String collectionOwnerId) {
-		this.collectionOwnerId = collectionOwnerId;
+	public void setUserType(String userType) {
+		this.userType = userType;
 	}
+
+	public String getTargetId() {
+		return targetId;
+	}
+
+	public void setTargetId(String targetId) {
+		this.targetId = targetId;
+	}
+
+	
 
 }

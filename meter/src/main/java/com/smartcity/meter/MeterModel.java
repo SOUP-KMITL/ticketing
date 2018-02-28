@@ -1,11 +1,11 @@
 package com.smartcity.meter;
 
 import java.util.Date;
-
-import org.apache.commons.codec.digest.DigestUtils;
+import java.util.UUID;
 
 public class MeterModel {
 	private String meterId;
+	private String userType;
 	private String userId;
 	private String collectionId;
 	private boolean isOpen;
@@ -17,8 +17,9 @@ public class MeterModel {
 	public MeterModel() {
 	}
 
-	public MeterModel(String userId, String collectionId,boolean isOpen,String type ,int record, int size) {
-		this.setMeterId(DigestUtils.sha256Hex(userId + collectionId + (new Date().getTime())));
+	public MeterModel(String userType,String userId, String collectionId,boolean isOpen,String type ,int record, int size) {
+		this.setMeterId(UUID.randomUUID().toString());
+		this.setUserType(userType);
 		this.setUserId(userId);
 		this.setCollectionId(collectionId);
 		this.setOpen(isOpen);
@@ -90,6 +91,14 @@ public class MeterModel {
 
 	public void setOpen(boolean isOpen) {
 		this.isOpen = isOpen;
+	}
+
+	public String getUserType() {
+		return userType;
+	}
+
+	public void setUserType(String userType) {
+		this.userType = userType;
 	}
 	
 }

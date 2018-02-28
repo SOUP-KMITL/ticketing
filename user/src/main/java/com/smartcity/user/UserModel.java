@@ -2,6 +2,7 @@ package com.smartcity.user;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -19,14 +20,14 @@ public class UserModel {
 	private String password;
 	private String firstName;
 	private String lastName;
-	private String profilePicture;
+	private String thumbnail;
 	private String email;
 	private String accessToken;
-	private Date timestamp;
+	private Date createdAt;
 
 	public UserModel() {
 		this.setUserId(userName);
-		this.setTimestamp(new Date());
+		this.setCreatedAt(new Date());
 	}
 
 	public UserModel(String userName, String password, String firstName,String lastName,String email) {
@@ -35,10 +36,10 @@ public class UserModel {
 		this.setPassword(password);
 		this.setFirstName(firstName);
 		this.setPassword(password);
-		this.setProfilePicture(null);
+		this.setThumbnail(null);
 		this.setAccessToken(null);
 		this.setEmail(email);
-		this.setTimestamp(new Date());
+		this.setCreatedAt(new Date());
 	}
 
 	public String generateAccessToken() {
@@ -81,15 +82,15 @@ public class UserModel {
 		this.accessToken = accessToken;
 	}
 
-	public Date getTimestamp() {
-		return timestamp;
+	public Date getCreatedAt() {
+		return createdAt;
 	}
 
-	public void setTimestamp(Date timestamp) {
-		if (timestamp == null) {
-			timestamp = new Date();
+	public void setCreatedAt(Date createdAt) {
+		if (createdAt == null) {
+			createdAt = new Date();
 		}
-		this.timestamp = timestamp;
+		this.createdAt = createdAt;
 	}
 
 	public String getUserId() {
@@ -97,7 +98,7 @@ public class UserModel {
 	}
 
 	public void setUserId(String userName) {
-		this.userId = Hashing.sha256().hashString(userName + this.getEmail() + new Date().getTime(), StandardCharsets.UTF_8).toString();
+		this.userId = UUID.randomUUID().toString();
 	}
 
 	public String getFirstName() {
@@ -116,11 +117,11 @@ public class UserModel {
 		this.lastName = lastName;
 	}
 
-	public String getProfilePicture() {
-		return profilePicture;
+	public String getThumbnail() {
+		return thumbnail;
 	}
 
-	public void setProfilePicture(String profilePicture) {
-		this.profilePicture = profilePicture;
+	public void setThumbnail(String profilePicture) {
+		this.thumbnail = profilePicture;
 	}
 }

@@ -1,14 +1,24 @@
 package com.smartcity.collection;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.security.InvalidKeyException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -17,20 +27,27 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import javax.net.ssl.SSLContext;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.json.JSONException;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -42,65 +59,102 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import com.mashape.unirest.request.HttpRequest;
+import com.mashape.unirest.request.HttpRequestWithBody;
+import com.mashape.unirest.request.body.RequestBodyEntity;
 import com.mongodb.MongoClient;
-import com.smartcity.collection.SecurityModel;
 
 @CrossOrigin
 @RestController
 public class CollectionController {
 	private MongoTemplate mongoTemplate = new MongoTemplate(
 			new SimpleMongoDbFactory(new MongoClient("mongo"), "CollectionModel"));
+	@Autowired
+	private CollectionModelRepository collectionRepository;
+
 	private String METADATA = "MetaData";
 	private final String USER_URL = System.getenv("USER_URL");
 	private final String AC_URL = System.getenv("AC_URL");
 	private final String METER_URL = System.getenv("METER_URL");
+	private final String SCDI_API = System.getenv("SCDI_API");
+	private final String SCDI_USER = System.getenv("SCDI_USER");
+	private final String SCDI_URL = System.getenv("SCDI_URL");
+
+	CollectionController() {
+		SSLContext sslContext = null;
+		try {
+			sslContext = new SSLContextBuilder().loadTrustMaterial(null, (certificate, authType) -> true).build();
+		} catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
+			e.printStackTrace();
+		}
+		Unirest.setHttpClient(HttpClients.custom().setSSLContext(sslContext)
+				.setSSLHostnameVerifier(new NoopHostnameVerifier()).build());
+	}
 
 	@GetMapping("/redirect")
 	public ResponseEntity<Object> redirect(HttpServletResponse resp) {
-		String url = "https://api.smartcity.kmitl.io/api/v1/collections/c3d4d1863df29aed97f8a9bbdcc2d3423d439f7c63dd1f4660a93a379c7bbd4c";
-		String header = "eyJkYXRhIjoiMTBSc1JkZE5waEh1RXlGSU5JbU5tWUNlcFVHc1VVY1kxQ085b2VyWFVpNkdWNlhFbzhTRkpudFNoMTlXdlhQTjBlbTJzOVdqUkZqZE1ySVZ6Sm1QUGd1NGRwa1B0d2toMjd3QnEwZUhfMjhTbXYyNEVqVUR6Q19JWkRDVVBHX1RxVUhnekZFNHJPanZuNDAxVkJ2ZlVGNmRZamFsX0QycU9rYUJUalZ3MUdTNW4zT3FkWlI1NTJDSjBveDJ1Zl9BbjBEa0Q3OXFwczNkTE0wQ0tlN0QtRExWVlNGeFdGUDZUTDBMY3JlWDljMjNvMkRUcHlzZlZxX05IVkptX183Z1BzU3ktREJMeEdGU19GLVVRdWh3cnVudVRNUGFtVzltNmNTWnVwdmhLVXJhUnYwREJZTEFoTlpPRVNmZ0RaX0VyOVhnZnRLUzRuMW44SEMtZ0I3NEVuWW1UVE9kS2NTVXk1UlJGLUlvLTR5cTlJa0dFYktjSUhONjFaR2NYOFpLdllubjdqVl93ZGVIRm1ubUhZNmhSVm1GTkM1aWxOaTZYR2dBQ285dEJhdDFYdnhXcmZrTENmLWtOM1JtS1UzelVuLTBENkpCbzVJdjFJYkJJSW8zTk1XYU1iN1lWOHdsdEdrdWNjSm1UOS1EbG1vVzVMZ0dSMVR4QnBrX0VfVFJhSm5UX0s5Wkp3LUxyYUxscU1ZYTVnPT0iLCJrZXkiOiJGelBlaEZiUzRza1d2MjdJTk5BN1hsVUhYRG9VSzFOaFU1Z3VVdzRERUZEQ242X1NmWTVTcXZPRUZlNU1YSkpDWnlwQjNiMW9TRW9kTUcxdzJGS3BSYXNQd1J3X0wxVHh6MWtXXzJqR1d0QVZraExzQmtOdzJvQmdGZGNMU1JLUXFxbEpYUnJSR0hRYmJGVnRDQllrZGlxU0FoR1dLcDJHSHVSbExId0I2NW5TdkNwV2tGNEFSU05kaE01dUNLWkVLYUFYc0lUVllOSjd6MVd2eUd5UW5Oelc4WENYX01SV3NWM2J0ZE5uMVpVdFZwakdQTWczU3dNaE5KcjVKS3NuV3Z2eUtZTXktWE00bEV6ZTRnRWg3QTEwSGhDbGpZdmdyZ09WTzVkb3I4Vk9kMU1FUmVqNmV5cDh0TElScTZ4X1dqS2xuRi1yZ0FwUU83WGhTbll3U1E9PSJ9";
-		return ResponseEntity.status(302).location(UriComponentsBuilder.fromUriString(url).build().toUri())
-				.header("Authorization", header).build();
+		// String url = "http://data.tmd.go.th/api/WeatherToday/V1/?format=json";
+		String urlString = "http://data.tmd.go.th/";
+		// return
+		// ResponseEntity.status(302).location(UriComponentsBuilder.fromUriString(url).build().toUri()).build();
+		URL url = null;
+		try {
+			url = new URL(urlString);
+		} catch (MalformedURLException e2) {
+			e2.printStackTrace();
+		}
+		URLConnection uc = null;
+		try {
+			uc = url.openConnection();
+		} catch (IOException e1) {
+			e1.printStackTrace();
+		}
+
+		uc.setRequestProperty("X-Requested-With", "Curl");
+
+		try {
+			InputStreamReader inputStreamReader = new InputStreamReader(uc.getInputStream());
+			return new ResponseEntity<Object>(HttpStatus.OK);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return new ResponseEntity<Object>(HttpStatus.INTERNAL_SERVER_ERROR);
+
 	}
 
-	@GetMapping(value = { "", "/api/v1/collections" })
-	public ResponseEntity<Object> getMeta(Pageable pageable, String collectionName, String collectionId, String type,
-			Boolean open, String owner) {
-		Criteria criteria = new Criteria();
-		if (collectionName != null) {
-			criteria = criteria.and("collectionName").is(collectionName);
-		}
-		if (collectionId != null) {
-			criteria = criteria.and("_id").regex(".*" + collectionId + ".*");
-		}
-		if (type != null) {
-			criteria = criteria.and("type").is(type);
-		}
+	@GetMapping("")
+	public ResponseEntity<Object> getMeta(Pageable pageable, @RequestParam(defaultValue = "") String collectionName,
+			@RequestParam(defaultValue = "") String collectionId, @RequestParam(defaultValue = "") String type,
+			Boolean open, @RequestParam(defaultValue = "") String owner) {
 		if (open != null) {
-			criteria = criteria.and("isOpen").is(open);
+			open = !open;
 		}
-		if (owner != null) {
-			criteria = criteria.and("owner").is(owner);
-		}
-		Query query = new Query(criteria);
-		query.fields().exclude("endPoint");
-		query.with(pageable);
-		List<Object> res = mongoTemplate.find(query, Object.class, METADATA);
-		return new ResponseEntity<>(res, HttpStatus.OK);
+		return new ResponseEntity<Object>(
+				collectionRepository.findAllCustom(owner, type, collectionName, collectionId, open, pageable),
+				HttpStatus.OK);
 	}
 
 	@GetMapping("/{collectionId}/meta")
-	public List<CollectionModel> getMetaById(@PathVariable String collectionId) {
+	public ResponseEntity<CollectionModel> getMetaById(@PathVariable String collectionId,
+			@RequestHeader(value = "Authorization", required = false) String authorization) {
 		Query query = new Query(Criteria.where("collectionId").is(collectionId));
-		query.fields().exclude("endPoint");
-		return mongoTemplate.find(query, CollectionModel.class, METADATA);
+		List<CollectionModel> cols = mongoTemplate.find(query, CollectionModel.class, METADATA);
+		String userName = getUserName(authorization);
+		if (cols.isEmpty()) {
+			return new ResponseEntity<CollectionModel>(HttpStatus.NOT_FOUND);
+		}
+		CollectionModel col = cols.get(0);
+		if (userName != null && col.getCollectionName().equalsIgnoreCase(userName)) {
+			return new ResponseEntity<CollectionModel>(col, HttpStatus.OK);
+		}
+		col.setEndPoint(null);
+		return new ResponseEntity<CollectionModel>(col, HttpStatus.OK);
 	}
 
 	@PutMapping("/{collectionId}/meta")
@@ -115,7 +169,7 @@ public class CollectionController {
 			CollectionModel col = mongoTemplate.findOne(query, CollectionModel.class, METADATA);
 			if (col.getOwner().equalsIgnoreCase((user.getString("userName")))) {
 				col.setOpen((boolean) json.get("isOpen"));
-				col.setIcon((String) json.getOrDefault("icon", col.getIcon()));
+				col.setThumbnail((String) json.getOrDefault("thumbnail", col.getThumbnail()));
 				col.setDescription((String) json.getOrDefault("description", col.getDescription()));
 				// col.setEndPoint((JSONObject) json.getOrDefault("endPoint",
 				// col.getEndPoint()));
@@ -136,6 +190,49 @@ public class CollectionController {
 		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 	}
 
+	@GetMapping(value = "/{collectionId}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
+	public ResponseEntity<InputStreamResource> getThumbnail(@PathVariable String collectionId) {
+		try {
+			String picture = collectionRepository.findByCollectionId(collectionId).getThumbnail();
+			byte[] pictureBtyes = Base64.getDecoder().decode(picture);
+			ByteArrayInputStream targetStream = new ByteArrayInputStream(pictureBtyes);
+			InputStreamResource isr = new InputStreamResource(targetStream);
+			return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).body(isr);
+		} catch (Exception e) {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+	}
+
+	@PutMapping("/{collectionId}/thumbnail")
+	public ResponseEntity<Object> updateThumbnail(@PathVariable String collectionId,
+			@RequestParam(required = true) MultipartFile thumbnail,
+			@RequestHeader(value = "Authorization") String authorization) {
+		byte[] bytes;
+		if (thumbnail.isEmpty()) {
+			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+		}
+		try {
+			bytes = thumbnail.getBytes();
+			String imageString = Base64.getEncoder().encodeToString(bytes);
+			String userName = getUserName(authorization);
+			CollectionModel col = collectionRepository.findByCollectionId(collectionId);
+			if (col == null) {
+				return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+			}
+			if (col.getOwner().equalsIgnoreCase(userName)) {
+				col.setThumbnail(imageString);
+				collectionRepository.save(col);
+				return new ResponseEntity<>(HttpStatus.OK);
+			} else {
+				return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+
+	}
+
 	@SuppressWarnings({ "rawtypes" })
 	@PostMapping("")
 	public ResponseEntity<Object> createCollection(@RequestHeader(value = "Authorization") String userToken,
@@ -149,25 +246,42 @@ public class CollectionController {
 			String userName = (String) res.getBody().getArray().getJSONObject(0).get("userName");
 			JSONObject example = null;
 			JSONObject endPoint = null;
-
+			JSONArray columns = null;
+			String collectionId = UUID.randomUUID().toString();
+			int encryptionLevel = (int) json.getOrDefault("encryptionLevel", 0);
+			String type = (String) json.get("type");
 			try {
 				example = new JSONObject((Map) json.get("example"));
 				endPoint = new JSONObject((Map) json.get("endPoint"));
+				if (type.equalsIgnoreCase("timeseries") || type.equalsIgnoreCase("geotemporal")) {
+					columns = new JSONArray();
+					columns.addAll((ArrayList<Object>) json.get("columns"));
+				} else if (!type.equalsIgnoreCase("keyvalue")) {
+					return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+				}
+
 			} catch (Exception e) {
 				e.printStackTrace();
-				System.err.println("ERROR :" + json);
 				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 			}
-			String collectionId = DigestUtils.sha256Hex((String) json.get("collectionName") + userId);
-			int encryptionLevel = (int) json.getOrDefault("encryptionLevel", 0);
 			if (!mongoTemplate
 					.find(new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA)
 					.isEmpty()) {
 				return new ResponseEntity<>(HttpStatus.CONFLICT);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, (String) json.get("collectionName"),
-					(String) json.get("description"), (String) json.get("icon"), endPoint, (String) json.get("type"),
+					(String) json.get("description"), (String) json.get("thumbnail"), endPoint, type, columns,
 					encryptionLevel, userName, example, (boolean) json.get("isOpen"));
+			JSONObject scdiBody = new JSONObject();
+			scdiBody.put("type", collection.getType());
+			scdiBody.put("columns", collection.getColumns());
+			HttpResponse<String> scdiRes = Unirest.post(SCDI_URL + "/api/v1/{userName}/{bucketName}?create")
+					.routeParam("userName", SCDI_USER).routeParam("bucketName", collection.getCollectionId())
+					.header("Content-Type", "application/json").header("APIKEY", SCDI_API).body(scdiBody.toJSONString())
+					.asString();
+			if (scdiRes.getStatus() != 200) {
+				return new ResponseEntity<>(scdiRes.getBody(), HttpStatus.BAD_REQUEST);
+			}
 			JSONObject body = new JSONObject();
 			body.put("userId", userId);
 			body.put("collectionId", collection.getCollectionId());
@@ -179,7 +293,7 @@ public class CollectionController {
 				return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
 			}
 			mongoTemplate.insert(collection, METADATA);
-			mongoTemplate.createCollection(collection.getCollectionId());
+			mongoTemplate.createCollection(collectionId);
 			return new ResponseEntity<Object>(collection.getCollectionId(), HttpStatus.CREATED);
 		} catch (UnirestException e1) {
 			e1.printStackTrace();
@@ -200,11 +314,18 @@ public class CollectionController {
 					.queryString("userId", userId).asString();
 			String role = res_ac.getBody();
 			if (role.equalsIgnoreCase("OWNER")) {
-				mongoTemplate.dropCollection(collectionId);
-				System.out.println(mongoTemplate.findAndRemove(
-						new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA));
+				HttpResponse<String> scdiRes = Unirest.delete(SCDI_URL + "/api/v1/{userName}/{bucketName}?delete")
+						.routeParam("userName", SCDI_USER).routeParam("bucketName", collectionId)
+						.header("apikey", SCDI_API).asString();
+
+				if(scdiRes.getStatus()!=200) {
+					return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+				}
+				mongoTemplate.findAndRemove(new Query(Criteria.where("collectionId").is(collectionId)),
+						CollectionModel.class, METADATA);
 				Unirest.delete(AC_URL + "/collections/{collectionId}").routeParam("collectionId", collectionId)
 						.asString();
+				mongoTemplate.dropCollection(collectionId);
 				return new ResponseEntity<>(HttpStatus.OK);
 			}
 		} catch (Exception e1) {
@@ -218,6 +339,8 @@ public class CollectionController {
 			@RequestHeader(value = "Authorization") String ticket, @RequestParam Map<String, Object> allRequestParams) {
 		JSONObject jsonTicket = decrypt(ticket);
 		if (jsonTicket != null) {
+			String targetId = (String) jsonTicket.getOrDefault("targetId",
+					(String) jsonTicket.getOrDefault("collectionId", ""));
 			if (isValidTicket(collectionId, jsonTicket)) {
 				CollectionModel collection = mongoTemplate.findOne(
 						new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA);
@@ -227,14 +350,20 @@ public class CollectionController {
 						Query q = new Query();
 						q.fields().exclude("_id");
 						List<JSONObject> res = retrieveData(pageable, collectionId, allRequestParams);
-						sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "read",
-								res.size(), res.toString().length());
+						sendToMeter((String) jsonTicket.getOrDefault("userType", ""), (String) jsonTicket.get("userId"),
+								targetId, "read", res.size(), res.toString().length());
 						return new ResponseEntity<>(res, HttpStatus.OK);
 					} else if (((String) endpoint.get("type")).equalsIgnoreCase("remote")) {
 						try {
 							HttpRequest req_remote = Unirest.get((String) endpoint.get("url"));
-							if (endpoint.containsKey("queryString")) {
-								req_remote = req_remote.queryString((Map<String, Object>) endpoint.get("queryString"));
+							allRequestParams.remove("sort");
+							allRequestParams.remove("page");
+							allRequestParams.remove("size");
+							if (endpoint.containsKey("queryString") || !allRequestParams.isEmpty()) {
+								Map<String, Object> tmp = new HashMap<String, Object>();
+								tmp.putAll(allRequestParams);
+								tmp.putAll((Map<String, Object>) endpoint.getOrDefault("queryString", null));
+								req_remote = req_remote.queryString(tmp);
 							}
 							if (endpoint.containsKey("headers")) {
 								req_remote = req_remote.headers((Map<String, String>) endpoint.get("headers"));
@@ -248,21 +377,23 @@ public class CollectionController {
 									c = Class.forName(type);
 								} catch (ClassNotFoundException e) {
 									e.printStackTrace();
-									return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
+									return new ResponseEntity<Object>(res_remote.getBody(), HttpStatus.OK);
 								}
 								Object json = c.cast(parser.parse(res_remote.getBody()));
 								int record = 1;
 								if (type.equalsIgnoreCase("org.json.simple.JSONArray")) {
 									record = ((JSONArray) json).size();
 								}
-								sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"),
-										"read", record, json.toString().length());
+								sendToMeter((String) jsonTicket.getOrDefault("userType", ""),
+										(String) jsonTicket.get("userId"), targetId, "read", record,
+										json.toString().length());
 								return new ResponseEntity<Object>(json, HttpStatus.OK);
 							} catch (ParseException e) {
 								e.printStackTrace();
 							}
-							sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"),
-									"read", 1, res_remote.getBody().length());
+							sendToMeter((String) jsonTicket.getOrDefault("userType", ""),
+									(String) jsonTicket.get("userId"), targetId, "read", 1,
+									res_remote.getBody().length());
 							return new ResponseEntity<Object>(res_remote.getBody(), HttpStatus.OK);
 						} catch (UnirestException e) {
 							e.printStackTrace();
@@ -289,8 +420,10 @@ public class CollectionController {
 		if (isValidTicket(collectionId, jsonTicket)
 				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))
 				&& mongoTemplate.collectionExists(collectionId)) {
-			sendToMeter((String) jsonTicket.get("userId"), (String) jsonTicket.get("collectionId"), "write",
-					arrayData.size(), arrayData.toString().length());
+			String targetId = (String) jsonTicket.getOrDefault("targetId",
+					(String) jsonTicket.getOrDefault("collectionId", ""));
+			sendToMeter((String) jsonTicket.getOrDefault("userType", ""), (String) jsonTicket.get("userId"), targetId,
+					"write", arrayData.size(), arrayData.toString().length());
 			if (!storingData(collectionId, arrayData)) {
 				return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
 			}
@@ -299,8 +432,13 @@ public class CollectionController {
 		return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 	}
 
-	private HttpResponse<String> sendToMeter(String userId, String collectionId, String type, int record, int size) {
+	private HttpResponse<String> sendToMeter(String userType, String userId, String collectionId, String type,
+			int record, int size) {
 		JSONObject body = new JSONObject();
+		if (userType.isEmpty()) {
+			userType = "user";
+		}
+		body.put("userType", userType);
 		body.put("userId", userId);
 		body.put("collectionId", collectionId);
 		CollectionModel col = mongoTemplate.findOne(new Query(Criteria.where("collectionId").is(collectionId)),
@@ -320,7 +458,7 @@ public class CollectionController {
 
 	private boolean isValidTicket(String collectionId, JSONObject ticket) {
 		long now = new Date().getTime();
-		if (!ticket.get("collectionId").equals(collectionId)) {
+		if (!ticket.getOrDefault("collectionId", ticket.getOrDefault("targetId", "")).equals(collectionId)) {
 			return false;
 		} else if (now > (Long) ticket.get("expire")) {
 			return false;
@@ -337,7 +475,6 @@ public class CollectionController {
 			json.replace("key", Base64.getUrlDecoder().decode((String) json.get("key")));
 			json.replace("data", Base64.getUrlDecoder().decode((String) json.get("data")));
 			String dataString = new String(security.decrypt((byte[]) json.get("key"), (byte[]) json.get("data")));
-			System.err.println(dataString);
 			JSONParser parser1 = new JSONParser();
 			json = (JSONObject) parser1.parse(dataString);
 			return json;
@@ -473,6 +610,15 @@ public class CollectionController {
 			return res.getBody().getArray().getJSONObject(0);
 		} catch (UnirestException | JSONException e) {
 			e.printStackTrace();
+			return null;
+		}
+	}
+
+	private String getUserName(String userToken) {
+		org.json.JSONObject user = getUserByToken(userToken);
+		try {
+			return (String) user.get("userName");
+		} catch (Exception e) {
 			return null;
 		}
 	}
