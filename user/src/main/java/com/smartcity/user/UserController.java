@@ -9,9 +9,19 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.List;
 
+import javax.net.ssl.SSLContext;
+
+import org.apache.http.client.HttpRequestRetryHandler;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
@@ -19,6 +29,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +45,28 @@ public class UserController {
 	@Autowired
 	private UserModelRepository repository;
 	private final String AC_URL = System.getenv("AC_URL");
+
+	public UserController() {
+		SSLContext sslContext = null;
+		try {
+			sslContext = new SSLContextBuilder().loadTrustMaterial(null, (certificate, authType) -> true).build();
+		} catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
+			e.printStackTrace();
+		}
+		Unirest.setHttpClient(HttpClients.custom().setSSLContext(sslContext)
+				.setSSLHostnameVerifier(new NoopHostnameVerifier()).setRetryHandler(new HttpRequestRetryHandler() {
+					@Override
+					public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
+						if (executionCount > 3) {
+							return false;
+						}
+						if (exception instanceof org.apache.http.NoHttpResponseException) {
+							return true;
+						}
+						return false;
+					}
+				}).build());
+	}
 
 	@GetMapping("/")
 	public @ResponseBody List<UserModel> getAllUser(String token, String userId) {
@@ -129,7 +162,7 @@ public class UserController {
 	@GetMapping(value = "/{userName}/thumbnail", produces = MediaType.IMAGE_PNG_VALUE)
 	public ResponseEntity<InputStreamResource> getThumbnail(@PathVariable String userName) {
 		try {
-			String picture = repository.findByuserName(userName).get(0).getThumbnail();
+			String picture = repository.findByuserName(userName).get(0).getThumbnailBase64();
 			byte[] pictureBtyes = Base64.getDecoder().decode(picture);
 			ByteArrayInputStream targetStream = new ByteArrayInputStream(pictureBtyes);
 			InputStreamResource isr = new InputStreamResource(targetStream);
@@ -141,8 +174,8 @@ public class UserController {
 	}
 
 	@PutMapping("/{userName}/thumbnail")
-	public ResponseEntity<Object> updateThumbnail(@PathVariable String userName,
-			@RequestParam MultipartFile thumbnail, @RequestHeader(value = "Authorization") String authorization) {
+	public ResponseEntity<Object> updateThumbnail(@PathVariable String userName, @RequestParam MultipartFile thumbnail,
+			@RequestHeader(value = "Authorization") String authorization) {
 		byte[] bytes;
 		if (thumbnail.isEmpty()) {
 			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
@@ -152,7 +185,8 @@ public class UserController {
 			String imageString = Base64.getEncoder().encodeToString(bytes);
 			UserModel user = (UserModel) login(authorization).getBody();
 			if (user.getUserName().equalsIgnoreCase(userName)) {
-				user.setThumbnail(imageString);
+				user.setThumbnailBase64(imageString);
+				user.setThumbnail("https://api.smartcity.kmitl.io/api/v1/users/" + user.getUserName() + "/thumbnail");
 				repository.save(user);
 				return new ResponseEntity<>(HttpStatus.OK);
 			}
@@ -161,6 +195,54 @@ public class UserController {
 		}
 		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 
+	}
+
+	@SuppressWarnings("unchecked")
+	@PutMapping("/{userName}")
+	public ResponseEntity<Object> updateMeta(@PathVariable String userName,
+			@RequestHeader(value = "Authorization") String authorization, @RequestBody JSONObject json) {
+		UserModel user = null;
+		try {
+			user = repository.findByuserName(userName).get(0);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+		String email = (String) json.getOrDefault("email", "");
+		String firstName = (String) json.getOrDefault("firstName", "");
+		String lastName = (String) json.getOrDefault("lastName", "");
+		String password = (String) json.getOrDefault("password", "");
+		if (!email.isEmpty()) {
+			user.setEmail(email);
+		}
+		if (!firstName.isEmpty()) {
+			user.setFirstName(firstName);
+		}
+		if (!lastName.isEmpty()) {
+			user.setLastName(lastName);;
+		}
+		if (!password.isEmpty()) {
+			user.setPassword(password);;
+		}
+		repository.save(user);
+		return new ResponseEntity<Object>(HttpStatus.OK);
+	}
+
+	@DeleteMapping("/{userName}")
+	public ResponseEntity<Object> deleteUser(@PathVariable String userName,
+			@RequestHeader(value = "Authorization") String authorization) {
+		UserModel user = (UserModel) login(authorization).getBody();
+		if (user.getUserName().equalsIgnoreCase(userName)) {
+			try {
+				HttpResponse<String> res = Unirest.delete(AC_URL + "/users/{userName}")
+						.routeParam("userName", user.getUserName()).header("Content-Type", "application/json")
+						.asString();
+			} catch (UnirestException e) {
+			}
+			repository.delete(user);
+			return new ResponseEntity<>(HttpStatus.OK);
+		}
+		return new ResponseEntity<>(HttpStatus.FORBIDDEN);
 	}
 
 	private boolean isValid(String basicAuth, UserModel user) {
@@ -184,6 +266,7 @@ public class UserController {
 		try {
 			HttpResponse<String> res = Unirest.post(AC_URL + "/users").header("Content-Type", "application/json")
 					.body(json.toJSONString()).asString();
+
 			if (res.getStatus() >= 200 && res.getStatus() < 300) {
 				return true;
 			}

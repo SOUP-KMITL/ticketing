@@ -1,6 +1,18 @@
 package com.smartcity.ticket;
 
+import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+
+import javax.net.ssl.SSLContext;
+
+import org.apache.http.client.HttpRequestRetryHandler;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -22,7 +34,27 @@ public class TicketController {
 	private String AC_URL = System.getenv("AC_URL");
 
 	private String USER_URL = System.getenv("USER_URL");
-
+	public TicketController() {
+		SSLContext sslContext = null;
+		try {
+			sslContext = new SSLContextBuilder().loadTrustMaterial(null, (certificate, authType) -> true).build();
+		} catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
+			e.printStackTrace();
+		}
+		Unirest.setHttpClient(HttpClients.custom().setSSLContext(sslContext)
+				.setSSLHostnameVerifier(new NoopHostnameVerifier()).setRetryHandler(new HttpRequestRetryHandler() {
+					@Override
+					public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
+						if (executionCount > 3) {
+							return false;
+						}
+						if (exception instanceof org.apache.http.NoHttpResponseException) {
+							return true;
+						}
+						return false;
+					}
+				}).build());
+	}
 	@PostMapping("")
 	public ResponseEntity<Object> genTicket(@RequestHeader(value = "Authorization") String userToken,
 			@RequestBody JSONObject jsonBody) {
@@ -56,6 +88,7 @@ public class TicketController {
 		}
 		SecurityModel security = SecurityModel.getInstance();
 		try {
+			System.err.println("role:"+role);
 			if (!role.isEmpty()) {
 				String ticketString;
 				ObjectMapper mapper = new ObjectMapper();

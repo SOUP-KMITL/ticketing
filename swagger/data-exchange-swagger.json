@@ -298,23 +298,11 @@
             "required": true
           },
           {
-            "name": "page",
-            "in": "query",
-            "required": false,
-            "type": "integer"
-          },
-          {
-            "name": "size",
-            "in": "query",
-            "required": false,
-            "type": "integer"
-          },
-          {
-            "name": "sort",
+            "name": "query",
             "in": "query",
             "required": false,
             "type": "string",
-            "description": "{fieldname},asc to order by ascending and {fieldname},desc to order by descending"
+            "description": "base64({ \"fromEpoch\" : [from_epoch_timestamp], // Optional \"toEpoch\" : [to_epoch_timestamp], // Optional  \"limit\" : [limit], // Optional  \"where\" : [ { \"column\" : [column_name], \"op\" : [\"gt\" | \"lt\" | \"eq\" | \"gte\" | \"lte\" ] \"value : [value] }, ... ], // Optional \"aggregate\" : [ { \"column\" : [column_name], \"op\" : [\"min\" | \"max\" | \"avg\" | \"sum\" | \"count\"] }, ...] // Optional }) only work with encryptionLevel 0 or 1"
           }
         ],
         "responses": {
@@ -535,7 +523,7 @@
             "in": "body",
             "name": "body",
             "schema": {
-              "$ref": "#/definitions/Ticket_req"
+              "$ref": "#/definitions/Ticket"
             }
           }
         ],
@@ -778,6 +766,9 @@
           "type": "string",
           "description": "[\"timeseries\"|\"geotemporal\"|\"keyvalue\"]"
         },
+        "category": {
+          "type": "string"
+        },
         "encryptionLevel": {
           "type": "integer",
           "description": "0 - the data is not encrypted(High optimization and Indexing), 1 - the data is medium encrypted (Medium optimization and Indexing) , 2 - the data is strong encrypted (No optimization and Indexing)",
@@ -869,6 +860,9 @@
           "type": "string",
           "description": "[\"timeseries\"|\"geotemporal\"|\"keyvalue\"]"
         },
+        "category": {
+          "type": "string"
+        },
         "encryptionLevel": {
           "type": "integer",
           "description": "0 - the data is not encrypted(High optimization and Indexing), 1 - the data is medium encrypted (Medium optimization and Indexing) , 2 - the data is strong encrypted (No optimization and Indexing)",
@@ -945,12 +939,16 @@
         }
       }
     },
-    "Ticket_req": {
+    "Ticket": {
       "type": "object",
       "properties": {
         "collectionId": {
           "type": "string",
-          "description": "collectionId"
+          "description": "(Optional)collectionId"
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "(Optional)serviceId"
         },
         "expire": {
           "type": "integer",

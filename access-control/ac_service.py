@@ -12,11 +12,7 @@ SERVICE_URL = getenv('SERVICE_URL', None)
 
 @application.route("/test", methods=['GET'])
 def test():
-    users = requests.get(
-        USER_URL,
-        params={'token': request.headers.get('authorization', None)}).json()
-    user = users[0]
-    return jsonify({'result': user.get('userName')})
+    return 'OK', 200
 
 
 @application.route("/migrate", methods=['GET'])
@@ -174,6 +170,24 @@ def create_user():
     return jsonify({'result': result}), 201
 
 
+@application.route("/users/<user_name>", methods=['DELETE'])
+def delete_user(user_name):
+    """delete user
+
+    Decorators:
+        application
+
+    Arguments:
+        user_name {string} -- user_name
+
+       Returns:
+           Response -- http status
+       """
+    if model_driver.delete_user(user_name):
+        return jsonify({'result': True}), 200
+    return error_handler(400)
+
+
 @application.route("/collections", methods=['POST'])
 def create_collection():
     """create collection
@@ -216,7 +230,8 @@ def update_open_collection(collection_id):
         Response -- http status
     """
     is_open = request.json.get("isOpen", request.json.get("open", True))
-    if model_driver.update_collection(collection_id, is_open):
+    result = model_driver.update_collection(collection_id, is_open)
+    if result:
         return jsonify({'result': True}), 200
     return error_handler(400)
 
@@ -351,8 +366,8 @@ def update_open_service(serviceId):
     return error_handler(400)
 
 
-def error_handler(status):
-    return jsonify({'result': False}), status
+def error_handler(status, message=None):
+    return jsonify({'result': message}), status
 
 
 if __name__ == "__main__":

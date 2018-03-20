@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.google.common.hash.Hashing;
 
@@ -16,11 +17,14 @@ public class UserModel {
 	@Id
 	@Indexed
 	private String userId;
+	@Indexed(unique=true)
 	private String userName;
 	private String password;
 	private String firstName;
 	private String lastName;
 	private String thumbnail;
+	@JsonIgnore
+	private String thumbnailBase64;
 	private String email;
 	private String accessToken;
 	private Date createdAt;
@@ -37,6 +41,7 @@ public class UserModel {
 		this.setFirstName(firstName);
 		this.setPassword(password);
 		this.setThumbnail(null);
+		this.setThumbnailBase64(null);
 		this.setAccessToken(null);
 		this.setEmail(email);
 		this.setCreatedAt(new Date());
@@ -123,5 +128,13 @@ public class UserModel {
 
 	public void setThumbnail(String profilePicture) {
 		this.thumbnail = profilePicture;
+	}
+
+	public String getThumbnailBase64() {
+		return thumbnailBase64;
+	}
+
+	public void setThumbnailBase64(String thumbnailBase64) {
+		this.thumbnailBase64 = thumbnailBase64;
 	}
 }

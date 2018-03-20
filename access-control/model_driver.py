@@ -312,9 +312,7 @@ def delete_service(service_uid):
 
 def delete_user(user_name):
     try:
-        db.cypher_query("MATCH p=(u:User)-[r:Role]->(s:Service) where u.name = {user_name} and r.type = 'owner' detach delete p",
-                        {"user_name": user_name})
-        db.cypher_query("MATCH p=(u:User)-[r:Role]->(c:Collection) where u.name = {user_name} and r.type = 'owner' detach delete p",
+        db.cypher_query("MATCH p=(u:User)-[r:Role]->() where u.name = {user_name} and r.type = 'owner' detach delete p",
                         {"user_name": user_name})
         return True
     except Exception:

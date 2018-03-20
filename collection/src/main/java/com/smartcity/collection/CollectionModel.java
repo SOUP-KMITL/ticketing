@@ -8,17 +8,22 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Document(collection = "MetaData")
 public class CollectionModel {
 	@Id
 	@Indexed
 	private String collectionId;
-
 	private String collectionName;
 	private String description;
 	private String thumbnail;
+	@JsonIgnore
+	private String thumbnailBase64;
+	@JsonIgnore
 	private JSONObject endPoint;
 	private String type;
+	private String category;
 	private JSONArray columns;
 	private int encryptionLevel;
 	private String owner;
@@ -29,15 +34,17 @@ public class CollectionModel {
 	public CollectionModel() {
 	}
 
-	public CollectionModel(String id, String collectionName, String description, String thumbnail, JSONObject endPoint,
-			String type, JSONArray columns, int encryptionLevel, String owner, JSONObject example, boolean isOpen) {
+	public CollectionModel(String id, String collectionName, String description, String thumbnailBase64, JSONObject endPoint,
+			String type,String category, JSONArray columns, int encryptionLevel, String owner, JSONObject example, boolean isOpen) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
 		this.isOpen = isOpen;
 		this.description = description;
-		this.thumbnail = thumbnail;
+		this.thumbnailBase64 = null;
+		this.thumbnail = null;
 		this.endPoint = endPoint;
 		this.type = type;
+		this.category = category;
 		this.columns = columns;
 		if (encryptionLevel > 2 || encryptionLevel < 0) {
 			this.encryptionLevel = 0;
@@ -142,5 +149,21 @@ public class CollectionModel {
 
 	public void setColumns(JSONArray columns) {
 		this.columns = columns;
+	}
+
+	public String getThumbnailBase64() {
+		return thumbnailBase64;
+	}
+
+	public void setThumbnailBase64(String thumbnailBase64) {
+		this.thumbnailBase64 = thumbnailBase64;
+	}
+
+	public String getCategory() {
+		return category;
+	}
+
+	public void setCategory(String category) {
+		this.category = category;
 	}
 }

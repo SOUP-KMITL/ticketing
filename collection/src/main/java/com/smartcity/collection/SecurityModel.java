@@ -13,13 +13,12 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 public class SecurityModel {
-	private static SecurityModel instance = null;
 	private Cipher cipher;
 	private Cipher aesCipher;
 	private PrivateKey privateKey;
 	private final String privateKeyPath = "/key/private";
 
-	private SecurityModel() {
+	SecurityModel() {
 		try {
 			privateKey = readPrivate();
 			cipher = Cipher.getInstance("RSA");
@@ -30,14 +29,6 @@ public class SecurityModel {
 		}
 		
 	}
-
-	public static SecurityModel getInstance() {
-		if (instance == null) {
-			instance = new SecurityModel();
-		}
-		return instance;
-	}
-
 
 	private PrivateKey readPrivate() throws Exception {
 		byte[] keyBytes = Files.readAllBytes(new File(privateKeyPath).toPath());

@@ -1,4 +1,5 @@
-FROM python:3.7-rc
-COPY ./ /
+FROM python
+ADD ./requirements.txt /requirements.txt
 RUN pip install -r /requirements.txt
-CMD uwsgi --http-socket :80 --wsgi-file /ac_service.py --master --processes 4 --threads 2
+ADD ./ /
+CMD gunicorn -w 4 -b 127.0.0.1:80 -b :80 -k gunicorn.workers.ggevent.GeventWorker --max-requests 1000 --keep-alive 60 ac_service:application

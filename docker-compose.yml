@@ -4,13 +4,16 @@ services:
     image: worker-01:5000/user-service
     build: ./user
     networks: 
-      - default
+      - default_test
     extra_hosts:
       - "mongo:172.16.0.6"
     env_file: 
       - ./app.env
+    dns: 8.8.8.8
     deploy:
-      replicas: 3
+      replicas: 8
+      update_config:
+        parallelism: 4
       restart_policy:
         condition: any
 
@@ -18,13 +21,16 @@ services:
     image: worker-01:5000/meter-service
     build: ./meter
     networks: 
-      - default
+      - default_test
     extra_hosts:
       - "mongo:172.16.0.6"
     env_file: 
       - ./app.env
+    dns: 8.8.8.8
     deploy:
-      replicas: 3
+      replicas: 8
+      update_config:
+        parallelism: 4
       restart_policy:
         condition: any
 
@@ -32,13 +38,16 @@ services:
     image: worker-01:5000/collection-service
     build: ./collection
     networks: 
-      - default
+      - default_test
     extra_hosts:
       - "mongo:172.16.0.6"
     env_file: 
       - ./app.env
+    dns: 8.8.8.8
     deploy:
-      replicas: 3
+      replicas: 8
+      update_config:
+        parallelism: 4
       restart_policy:
         condition: any
 
@@ -46,38 +55,65 @@ services:
     image: worker-01:5000/access-control-service
     build: ./access-control
     networks: 
-      - default
+      - default_test
+      # hostnet: {}
+    ports:
+      - '8083:80'
     extra_hosts:
       - "mongo:172.16.0.6"
     env_file: 
       - ./app.env
+    dns: 8.8.8.8
     deploy:
-      replicas: 3
+      replicas: 8
+      # mode: global
+      update_config:
+        parallelism: 4
       restart_policy:
         condition: any
+  # test-service:
+  #   image: worker-01:5000/test-service
+  #   build: ./test
+  #   networks: 
+  #     - default_test
+  #   extra_hosts:
+  #     - "mongo:172.16.0.6"
+  #   env_file: 
+  #     - ./app.env
+  #   ports:
+  #     - '8082:80'
+  #   deploy:
+  #     # mode: global
+  #     replicas: 10
+  #     update_config:
+  #       parallelism: 3
+  #     restart_policy:
+  #       condition: any
 
   ticket-service:
     image: worker-01:5000/ticket-service
     build: ./ticket
     networks: 
-      - default
+      - default_test
     extra_hosts:
       - "mongo:172.16.0.6"
     env_file: 
       - ./app.env
+    dns: 8.8.8.8
     deploy:
-      replicas: 3
+      replicas: 8
+      update_config:
+        parallelism: 4
       restart_policy:
         condition: any
   kong:
     image: worker-01:5000/kong
     build: ./kong
     networks: 
-      - default
+      - default_test
     depends_on:
       - kong-database
     ports:
-      - '8001:8001'
       - '80:80'
       - '443:443'
     environment:
@@ -86,9 +122,11 @@ services:
       - KONG_ADMIN_LISTEN=0.0.0.0:8001
       - KONG_ADMIN_LISTEN_SSL=0.0.0.0:8444
     deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
       restart_policy:
         condition: any
-      replicas: 2
     volumes: 
       - '/home/centos/glusterdata/cert:/cert'
 
@@ -97,7 +135,7 @@ services:
     depends_on:
       - kong
     networks: 
-      - default 
+      - default_test 
     ports:
       - '8081:8080'
     deploy:
@@ -109,7 +147,7 @@ services:
     environment:
       - NEO4J_AUTH=none
     networks: 
-      - default
+      - default_test
     volumes:
       - '/home/centos/glusterdata/neo4j/data:/data'
     ports:
@@ -119,19 +157,13 @@ services:
       restart_policy:
         condition: any
 
-  # mongo:
-  #   image: mongo
-  #   deploy:
-  #     restart_policy:
-  #       condition: any
-
   kong-database:
     image: 'postgres:9.4'
     environment:
       - POSTGRES_USER=kong
       - POSTGRES_DB=kong
     networks: 
-      - default
+      - default_test
     volumes:
       - '/home/centos/glusterdata/kong-data:/var/lib/postgresql/data'
     deploy:
@@ -143,7 +175,7 @@ services:
     build: ./swagger
     # image: swaggerapi/swagger-ui
     networks: 
-      - default
+      - default_test
     environment:
       - SWAGGER_JSON=/api/v1/doc/data-exchange/data-exchange-swagger.json
       - BASE_URL=/api/v1/doc/data-exchange
@@ -152,10 +184,13 @@ services:
         condition: any
 
 networks:
-  default:
+  default_test:
     attachable: true
-    driver: store/weaveworks/net-plugin:latest_release
+    # driver: store/weaveworks/net-plugin:latest_release
+  hostnet: 
+    external:
+      name: host
 # networks:
-#   default:
+#   default_test:
 #     external:
-#       name: ticketing_default
+#       name: ticketing_default_test
