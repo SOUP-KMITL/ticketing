@@ -2,6 +2,7 @@ package com.smartcity.collection;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
@@ -56,6 +57,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.google.common.io.ByteStreams;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
@@ -112,8 +114,10 @@ public class CollectionController {
 			Boolean open, @RequestParam(defaultValue = "") String owner,
 			@RequestParam(defaultValue = "") String keyword) {
 		if (!keyword.isEmpty()) {
-			return new ResponseEntity<Object>(collectionRepository.findByCollectionNameLikeOrOwnerLikeOrDescriptionLikeOrCategoryLike(
-					keyword, keyword, keyword, keyword, pageable), HttpStatus.OK);
+			return new ResponseEntity<Object>(
+					collectionRepository.findByCollectionNameLikeOrOwnerLikeOrDescriptionLikeOrCategoryLike(keyword,
+							keyword, keyword, keyword, pageable),
+					HttpStatus.OK);
 		}
 		if (open != null) {
 			open = !open;
@@ -484,6 +488,36 @@ public class CollectionController {
 			return new ResponseEntity<>(HttpStatus.CREATED);
 		}
 		return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
+	}
+
+	@PutMapping(value = "/{collectionId}/{objectName}")
+	public ResponseEntity<Object> uploadSingleFile(@PathVariable String collectionId,
+			@RequestHeader(value = "Authorization") String ticket,
+			@RequestHeader(value = "Content-MD5") String md5, 
+			@PathVariable String objectName,
+			InputStream dataStream) {
+		JSONObject jsonTicket = decrypt(ticket);
+		if (jsonTicket == null) {
+			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
+		}
+		if (isValidTicket(collectionId, jsonTicket)
+				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))){
+			try {
+				byte[] targetArray = ByteStreams.toByteArray(dataStream);
+				HttpResponse<String> response = Unirest
+						.put(SCDI_URL+"/api/v1/{userName}/{collectionId}/{objectName}")
+						.routeParam("userName", SCDI_USER).routeParam("collectionId", collectionId).routeParam("objectName", objectName)
+						.header("apikey", SCDI_API)
+						.header("Content-MD5", md5)
+						.header("HOST", "scdi-api.philinelabs.net").header("Cache-Control", "no-cache").body(targetArray)
+						.asString();
+				if(response.getStatus()==200) {
+					return new ResponseEntity<Object>(HttpStatus.OK);					
+				}
+			} catch (IOException | UnirestException e) {
+			}
+		}
+		return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
 	}
 
 	private HttpResponse<String> sendToMeter(String userType, String userId, String collectionId, String type,
