@@ -6,14 +6,14 @@ services:
     networks: 
       - default_test
     extra_hosts:
-      - "mongo:172.16.0.6"
+      - "mongodb-service:172.16.0.6"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 8
+      replicas: 1
       update_config:
-        parallelism: 4
+        parallelism: 1
       restart_policy:
         condition: any
 
@@ -23,14 +23,14 @@ services:
     networks: 
       - default_test
     extra_hosts:
-      - "mongo:172.16.0.6"
+      - "mongo-service:172.16.0.6"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 8
+      replicas: 1
       update_config:
-        parallelism: 4
+        parallelism: 1
       restart_policy:
         condition: any
 
@@ -40,14 +40,14 @@ services:
     networks: 
       - default_test
     extra_hosts:
-      - "mongo:172.16.0.6"
+      - "mongodb-service:172.16.0.6"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 8
+      replicas: 1
       update_config:
-        parallelism: 4
+        parallelism: 1
       restart_policy:
         condition: any
 
@@ -56,141 +56,115 @@ services:
     build: ./access-control
     networks: 
       - default_test
-      # hostnet: {}
     ports:
       - '8083:80'
     extra_hosts:
-      - "mongo:172.16.0.6"
+      - "mongodb-service:172.16.0.6"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 8
+      replicas: 1
       # mode: global
       update_config:
-        parallelism: 4
+        parallelism: 1
       restart_policy:
         condition: any
-  # test-service:
-  #   image: worker-01:5000/test-service
-  #   build: ./test
-  #   networks: 
-  #     - default_test
-  #   extra_hosts:
-  #     - "mongo:172.16.0.6"
-  #   env_file: 
-  #     - ./app.env
-  #   ports:
-  #     - '8082:80'
-  #   deploy:
-  #     # mode: global
-  #     replicas: 10
-  #     update_config:
-  #       parallelism: 3
-  #     restart_policy:
-  #       condition: any
-
+        
   ticket-service:
     image: worker-01:5000/ticket-service
     build: ./ticket
     networks: 
       - default_test
     extra_hosts:
-      - "mongo:172.16.0.6"
+      - "mongodb-service:172.16.0.6"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 8
-      update_config:
-        parallelism: 4
-      restart_policy:
-        condition: any
-  kong:
-    image: worker-01:5000/kong
-    build: ./kong
-    networks: 
-      - default_test
-    depends_on:
-      - kong-database
-    ports:
-      - '80:80'
-      - '443:443'
-    environment:
-      - KONG_DATABASE=postgres
-      - KONG_PG_HOST=kong-database
-      - KONG_ADMIN_LISTEN=0.0.0.0:8001
-      - KONG_ADMIN_LISTEN_SSL=0.0.0.0:8444
-    deploy:
-      replicas: 3
+      replicas: 1
       update_config:
         parallelism: 1
       restart_policy:
         condition: any
-    volumes: 
-      - '/home/centos/glusterdata/cert:/cert'
+  # kong:
+  #   image: worker-01:5000/kong
+  #   build: ./kong
+  #   networks: 
+  #     - default_test
+  #   depends_on:
+  #     - kong-database
+  #   ports:
+  #     - '80:80'
+  #     - '443:443'
+  #   environment:
+  #     - KONG_DATABASE=postgres
+  #     - KONG_PG_HOST=kong-database
+  #     - KONG_ADMIN_LISTEN=0.0.0.0:8001
+  #     - KONG_ADMIN_LISTEN_SSL=0.0.0.0:8444
+  #   deploy:
+  #     replicas: 1
+  #     update_config:
+  #       parallelism: 1
+  #     restart_policy:
+  #       condition: any
+  #   volumes: 
+  #     - '/home/centos/glusterdata/cert:/cert'
 
-  kong-dashboard:
-    image: 'pgbi/kong-dashboard:v2'
-    depends_on:
-      - kong
-    networks: 
-      - default_test 
-    ports:
-      - '8081:8080'
-    deploy:
-      restart_policy:
-        condition: any
+  # kong-dashboard:
+  #   image: 'pgbi/kong-dashboard:v2'
+  #   depends_on:
+  #     - kong
+  #   networks: 
+  #     - default_test 
+  #   ports:
+  #     - '8081:8080'
+  #   deploy:
+  #     restart_policy:
+  #       condition: any
 
-  neo4j:
-    image: neo4j
-    environment:
-      - NEO4J_AUTH=none
-    networks: 
-      - default_test
-    volumes:
-      - '/home/centos/glusterdata/neo4j/data:/data'
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    deploy:
-      restart_policy:
-        condition: any
+  # neo4j:
+  #   image: neo4j
+  #   environment:
+  #     - NEO4J_AUTH=none
+  #   networks: 
+  #     - default_test
+  #   volumes:
+  #     - '/home/centos/glusterdata/neo4j/data:/data'
+  #   ports:
+  #     - "7474:7474"
+  #     - "7687:7687"
+  #   deploy:
+  #     restart_policy:
+  #       condition: any
 
-  kong-database:
-    image: 'postgres:9.4'
-    environment:
-      - POSTGRES_USER=kong
-      - POSTGRES_DB=kong
-    networks: 
-      - default_test
-    volumes:
-      - '/home/centos/glusterdata/kong-data:/var/lib/postgresql/data'
-    deploy:
-      restart_policy:
-        condition: any
+  # kong-database:
+  #   image: 'postgres:9.4'
+  #   environment:
+  #     - POSTGRES_USER=kong
+  #     - POSTGRES_DB=kong
+  #   networks: 
+  #     - default_test
+  #   volumes:
+  #     - '/home/centos/glusterdata/kong-data:/var/lib/postgresql/data'
+  #   deploy:
+  #     restart_policy:
+  #       condition: any
       
-  swagger:
-    image: worker-01:5000/swagger
-    build: ./swagger
-    # image: swaggerapi/swagger-ui
-    networks: 
-      - default_test
-    environment:
-      - SWAGGER_JSON=/api/v1/doc/data-exchange/data-exchange-swagger.json
-      - BASE_URL=/api/v1/doc/data-exchange
-    deploy:
-      restart_policy:
-        condition: any
+  # swagger:
+  #   image: worker-01:5000/swagger
+  #   build: ./swagger
+  #   # image: swaggerapi/swagger-ui
+  #   networks: 
+  #     - default_test
+  #   environment:
+  #     - SWAGGER_JSON=/api/v1/doc/data-exchange/data-exchange-swagger.json
+  #     - BASE_URL=/api/v1/doc/data-exchange
+  #   deploy:
+  #     restart_policy:
+  #       # condition: any
 
 networks:
   default_test:
     attachable: true
     # driver: store/weaveworks/net-plugin:latest_release
-  hostnet: 
-    external:
-      name: host
-# networks:
-#   default_test:
-#     external:
-#       name: ticketing_default_test

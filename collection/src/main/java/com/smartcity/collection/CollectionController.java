@@ -7,7 +7,6 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
@@ -68,7 +67,7 @@ import com.mongodb.MongoClient;
 @RestController
 public class CollectionController {
 	private MongoTemplate mongoTemplate = new MongoTemplate(
-			new SimpleMongoDbFactory(new MongoClient("mongo"), "CollectionModel"));
+			new SimpleMongoDbFactory(new MongoClient("mongodb-service"), "CollectionModel"));
 	@Autowired
 	private CollectionModelRepository collectionRepository;
 
@@ -102,8 +101,8 @@ public class CollectionController {
 				}).build());
 	}
 
-	@GetMapping("/test")
-	public ResponseEntity<Object> test() {
+	@GetMapping("/healthz")
+	public ResponseEntity<Object> healthz() {
 		return new ResponseEntity<>(HttpStatus.OK);
 	}
 
@@ -113,8 +112,8 @@ public class CollectionController {
 			Boolean open, @RequestParam(defaultValue = "") String owner,
 			@RequestParam(defaultValue = "") String keyword) {
 		if (!keyword.isEmpty()) {
-			return new ResponseEntity<Object>(collectionRepository.findByCollectionNameLikeOrOwnerLikeOrDescriptionLike(
-					keyword, keyword, keyword, pageable), HttpStatus.OK);
+			return new ResponseEntity<Object>(collectionRepository.findByCollectionNameLikeOrOwnerLikeOrDescriptionLikeOrCategoryLike(
+					keyword, keyword, keyword, keyword, pageable), HttpStatus.OK);
 		}
 		if (open != null) {
 			open = !open;
@@ -153,11 +152,7 @@ public class CollectionController {
 			CollectionModel col = mongoTemplate.findOne(query, CollectionModel.class, METADATA);
 			if (col.getOwner().equalsIgnoreCase((user.getString("userName")))) {
 				col.setOpen((boolean) json.get("isOpen"));
-				// col.setThumbnail((String) json.getOrDefault("thumbnail",
-				// col.getThumbnail()));
 				col.setDescription((String) json.getOrDefault("description", col.getDescription()));
-				// col.setEndPoint((JSONObject) json.getOrDefault("endPoint",
-				// col.getEndPoint()));
 				HttpResponse<String> res = Unirest.put(AC_URL + "/collections/{collectionId}")
 						.header("Content-Type", "application/json").routeParam("collectionId", collectionId)
 						.body(json.toJSONString()).asString();
@@ -251,7 +246,7 @@ public class CollectionController {
 				} else {
 					endPoint = new JSONObject((Map) json.get("endPoint"));
 				}
-				example = new JSONObject((Map) json.get("example"));
+				example = new JSONObject((Map) json.getOrDefault("example", new JSONObject()));
 				if (((String) endPoint.get("type")).equalsIgnoreCase("local")) {
 					if (type.equalsIgnoreCase("timeseries") || type.equalsIgnoreCase("geotemporal")) {
 						columns = new JSONArray();
@@ -643,7 +638,9 @@ public class CollectionController {
 		String collectionId = collection.getCollectionId();
 		String query;
 		if (base64query == null) {
-			query = new JSONObject().toJSONString();
+			JSONObject limit = new JSONObject();
+			limit.put("limit", 1000);
+			query = limit.toJSONString();
 		} else {
 			query = new String(Base64.getDecoder().decode(base64query));
 		}

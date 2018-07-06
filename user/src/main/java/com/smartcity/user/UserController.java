@@ -69,12 +69,15 @@ public class UserController {
 	}
 
 	@GetMapping("/")
-	public @ResponseBody List<UserModel> getAllUser(String token, String userId) {
+	public @ResponseBody List<UserModel> getAllUser(String token, String userId,String userName) {
 		if (token != null) {
 			return repository.findByAccessToken(token);
 		}
-		if (userId != null) {
+		else if (userId != null) {
 			return repository.findByUserId(userId);
+		}
+		else if (userName != null) {
+			return repository.findByuserName(userName);
 		}
 		return repository.findAll();
 	}

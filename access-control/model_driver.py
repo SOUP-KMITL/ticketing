@@ -5,7 +5,7 @@ from neomodel import (BooleanProperty, RelationshipFrom, RelationshipTo,
                       StringProperty, StructuredNode, StructuredRel, config,
                       db)
 
-config.DATABASE_URL = 'bolt://none:none@ticketing_neo4j:7687'
+config.DATABASE_URL = 'bolt://none:none@neo4j-neo4j:7687'
 
 
 class Role(StructuredRel):

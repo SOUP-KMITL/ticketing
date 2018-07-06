@@ -88,7 +88,6 @@ public class TicketController {
 		}
 		SecurityModel security = SecurityModel.getInstance();
 		try {
-			System.err.println("role:"+role);
 			if (!role.isEmpty()) {
 				String ticketString;
 				ObjectMapper mapper = new ObjectMapper();
@@ -110,19 +109,6 @@ public class TicketController {
 		}
 		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 	}
-
-//	private String getUserIdByName(String userName) {
-//		HttpResponse<String> res = null;
-//		JSONParser parser = new JSONParser();
-//		JSONArray json = null;
-//		try {
-//			res = Unirest.get(USER_URL + "/{userName}").routeParam("userName", userName).asString();
-//			json = (JSONArray) parser.parse(res.getBody());
-//		} catch (Exception e) {
-//			return null;
-//		}
-//		return (String) ((JSONObject) json.get(0)).get("userId");
-//	}
 
 	private String getUserId(String userToken) {
 		HttpResponse<String> res = null;
@@ -174,25 +160,5 @@ public class TicketController {
 		String role = res.getBody();
 		return role;
 	}
-
-	// private boolean isUserCreditVaild(String userId, String collectionId, String
-	// ownerId) {
-	// JSONObject reqJson = new JSONObject();
-	// reqJson.put("from", userId);
-	// reqJson.put("to", ownerId);
-	// reqJson.put("type", "TCKT");
-	// reqJson.put("collectionId", collectionId);
-	// try {
-	// HttpResponse<String> res = Unirest.post(CREDIT_URL + "/transactions/")
-	// .header("Content-Type",
-	// "application/json").body(reqJson.toJSONString()).asString();
-	// if (res.getStatus() == 200) {
-	// return true;
-	// }
-	// } catch (UnirestException e) {
-	// e.printStackTrace();
-	// }
-	// return true;
-	// }
 
 }

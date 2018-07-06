@@ -19,7 +19,6 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.json.JSONException;
-import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -165,15 +164,6 @@ public class MeterController {
 		return new ResponseEntity(HttpStatus.CREATED);
 	}
 
-	private org.json.JSONObject getUserByToken(String userToken) {
-		try {
-			HttpResponse<JsonNode> res = Unirest.get(USER_URL).queryString("token", userToken).asJson();
-			return res.getBody().getArray().getJSONObject(0);
-		} catch (UnirestException | JSONException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
 	
 
 }

@@ -11,7 +11,7 @@ public class TicketModel {
 	private String targetId;
 	private String role;
 	private Date expire;
-	private Date timstamp;
+	private Date createdAt;
 
 	public TicketModel() {
 
@@ -28,13 +28,16 @@ public class TicketModel {
 		this.setTargetId(targetId);
 		this.role = role;
 		this.expire = c.getTime();
-		this.timstamp = date;
+		this.createdAt = date;
 	}
 
-	public TicketModel(String userId,String userType, String targetId,  String role, int expire) {
+	public TicketModel(String userType,String userId, String targetId,  String role, int expire) {
 		Date date = new Date();
 		Calendar c = Calendar.getInstance();
 		c.setTime(date);
+		if(expire==0) {
+			expire = 180;
+		}
 		c.add(Calendar.DATE, expire);
 		this.ticketId = UUID.randomUUID().toString();
 		this.userId = userId;
@@ -42,7 +45,7 @@ public class TicketModel {
 		this.setTargetId(targetId);
 		this.role = role;
 		this.expire = c.getTime();
-		this.timstamp = date;
+		this.createdAt = date;
 	}
 
 	public String getTicketId() {
@@ -70,12 +73,12 @@ public class TicketModel {
 		this.role = role;
 	}
 
-	public Date getTimstamp() {
-		return timstamp;
+	public Date getCreatedAt() {
+		return createdAt;
 	}
 
-	public void setTimstamp(Date timstamp) {
-		this.timstamp = timstamp;
+	public void setCreatedAt(Date createdAt) {
+		this.createdAt = createdAt;
 	}
 
 	public Date getExpire() {

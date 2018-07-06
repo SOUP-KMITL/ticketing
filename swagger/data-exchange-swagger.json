@@ -762,6 +762,9 @@
         "collectionName": {
           "type": "string"
         },
+        "description": {
+          "type": "string"
+        },
         "type": {
           "type": "string",
           "description": "[\"timeseries\"|\"geotemporal\"|\"keyvalue\"]"
@@ -855,6 +858,9 @@
               }
             }
           }
+        },
+        "description": {
+          "type": "string"
         },
         "type": {
           "type": "string",
