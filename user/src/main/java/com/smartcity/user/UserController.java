@@ -235,6 +235,9 @@ public class UserController {
 	public ResponseEntity<Object> deleteUser(@PathVariable String userName,
 			@RequestHeader(value = "Authorization") String authorization) {
 		UserModel user = (UserModel) login(authorization).getBody();
+		if(user==null) {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
 		if (user.getUserName().equalsIgnoreCase(userName)) {
 			try {
 				HttpResponse<String> res = Unirest.delete(AC_URL + "/users/{userName}")

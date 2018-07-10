@@ -512,8 +512,11 @@ public class CollectionController {
 						.header("HOST", "scdi-api.philinelabs.net").header("Cache-Control", "no-cache").body(targetArray)
 						.asString();
 				if(response.getStatus()==200) {
+					sendToMeter((String) jsonTicket.getOrDefault("userType", ""), (String) jsonTicket.get("userId"),
+							collectionId, "write", 1, targetArray.length);
 					return new ResponseEntity<Object>(HttpStatus.OK);					
 				}
+				return new ResponseEntity<Object>(response.getBody(),HttpStatus.OK);
 			} catch (IOException | UnirestException e) {
 			}
 		}

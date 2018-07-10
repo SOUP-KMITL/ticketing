@@ -5,7 +5,8 @@ from neomodel import (BooleanProperty, RelationshipFrom, RelationshipTo,
                       StringProperty, StructuredNode, StructuredRel, config,
                       db)
 
-config.DATABASE_URL = 'bolt://none:none@neo4j-neo4j:7687'
+# config.DATABASE_URL = 'bolt://none:none@neo4j-neo4j-core-0.neo4j-neo4j.test.svc.cluster.local:7687'
+config.DATABASE_URL = 'bolt://none:none@ticketing_neo4j:7687'
 
 
 class Role(StructuredRel):
@@ -313,6 +314,8 @@ def delete_service(service_uid):
 def delete_user(user_name):
     try:
         db.cypher_query("MATCH p=(u:User)-[r:Role]->() where u.name = {user_name} and r.type = 'owner' detach delete p",
+                        {"user_name": user_name})
+        db.cypher_query("MATCH (u:User) where u.name = {user_name} delete u",
                         {"user_name": user_name})
         return True
     except Exception:
