@@ -11,7 +11,7 @@ services:
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 1
+      replicas: 2
       update_config:
         parallelism: 1
       restart_policy:
@@ -28,7 +28,7 @@ services:
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 1
+      replicas: 2
       update_config:
         parallelism: 1
       restart_policy:
@@ -45,7 +45,7 @@ services:
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 1
+      replicas: 2
       update_config:
         parallelism: 1
       restart_policy:
@@ -64,7 +64,7 @@ services:
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 1
+      replicas: 2
       # mode: global
       update_config:
         parallelism: 1
@@ -82,7 +82,7 @@ services:
       - ./app.env
     dns: 8.8.8.8
     deploy:
-      replicas: 1
+      replicas: 2
       update_config:
         parallelism: 1
       restart_policy:
@@ -103,7 +103,7 @@ services:
   #     - KONG_ADMIN_LISTEN=0.0.0.0:8001
   #     - KONG_ADMIN_LISTEN_SSL=0.0.0.0:8444
   #   deploy:
-  #     replicas: 1
+  #     replicas: 2
   #     update_config:
   #       parallelism: 1
   #     restart_policy:
