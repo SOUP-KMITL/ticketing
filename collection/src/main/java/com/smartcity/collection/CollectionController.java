@@ -8,6 +8,7 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
@@ -23,12 +24,14 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.SSLContext;
-
+import javax.servlet.http.HttpServletRequest;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.client.HttpRequestRetryHandler;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.tika.Tika;
 import org.json.JSONException;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -42,9 +45,11 @@ import org.springframework.data.mongodb.core.SimpleMongoDbFactory;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -56,13 +61,16 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.HandlerMapping;
 
 import com.google.common.io.ByteStreams;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import com.mashape.unirest.request.GetRequest;
 import com.mashape.unirest.request.HttpRequest;
+import com.mashape.unirest.request.HttpRequestWithBody;
 import com.mongodb.MongoClient;
 
 @CrossOrigin
@@ -105,7 +113,9 @@ public class CollectionController {
 
 	@GetMapping("/healthz")
 	public ResponseEntity<Object> healthz() {
-		return new ResponseEntity<>(HttpStatus.OK);
+		char[] chars = new char[1000000];
+		Arrays.fill(chars, 'f');
+		return new ResponseEntity<Object>(new String(chars),HttpStatus.OK);
 	}
 
 	@GetMapping("")
@@ -338,9 +348,9 @@ public class CollectionController {
 				HttpResponse<String> scdiRes = Unirest.delete(SCDI_URL + "/api/v1/{userName}/{bucketName}?delete")
 						.routeParam("userName", SCDI_USER).routeParam("bucketName", collectionId)
 						.header("apikey", SCDI_API).asString();
-				// if (scdiRes.getStatus() != 200) {
-				// return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-				// }
+				if (scdiRes.getStatus() != 200) {
+					return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+				}
 				mongoTemplate.findAndRemove(new Query(Criteria.where("collectionId").is(collectionId)),
 						CollectionModel.class, METADATA);
 				for (int i = 0; i < 5; i++) {
@@ -378,8 +388,7 @@ public class CollectionController {
 						if (!collection.getType().equalsIgnoreCase("keyvalue")) {
 							Query q = new Query();
 							q.fields().exclude("_id");
-							List<JSONObject> res = retrieveJsonData(
-									(String) allRequestParams.getOrDefault("query", null), collection);
+							List<JSONObject> res = retrieveJsonData(allRequestParams, collection);
 							sendToMeter((String) jsonTicket.getOrDefault("userType", ""),
 									(String) jsonTicket.get("userId"), targetId, "read", res.size(),
 									res.toString().length());
@@ -490,34 +499,167 @@ public class CollectionController {
 		return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 	}
 
-	@PutMapping(value = "/{collectionId}/{objectName}")
+	@GetMapping(value = "/{collectionId}/objects", produces = MediaType.APPLICATION_JSON_UTF8_VALUE)
+	public ResponseEntity<Object> getAllObject(@PathVariable String collectionId,
+			@RequestHeader(value = "Authorization") String ticket) {
+		JSONObject jsonTicket = decrypt(ticket);
+		if (jsonTicket == null) {
+			return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+		}
+		if (isValidTicket(collectionId, jsonTicket) && (jsonTicket.get("role").equals("OWNER")
+				|| jsonTicket.get("role").equals("CONTRIBUTOR") || jsonTicket.get("role").equals("READ"))) {
+			String url = SCDI_URL + "/api/v1/{userName}/{collectionId}?list";
+			try {
+				HttpResponse<String> res = Unirest.get(url).routeParam("userName", SCDI_USER)
+						.routeParam("collectionId", collectionId).header("apikey", SCDI_API)
+						.header("HOST", "scdi-api.philinelabs.net").header("Cache-Control", "no-cache").asString();
+				return ResponseEntity.ok().body(res.getBody());
+			} catch (UnirestException e) {
+				e.printStackTrace();
+			}
+		}
+		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+	}
+
+	@GetMapping(value = "/{collectionId}/objects/{objectName}/**")
+	public ResponseEntity<Object> getUploadedFile(@PathVariable String collectionId,
+			@RequestHeader(value = "Authorization") String ticket, @PathVariable String objectName, String metadata,
+			HttpServletRequest request) {
+		JSONObject jsonTicket = decrypt(ticket);
+		if (jsonTicket == null) {
+			return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+		}
+		if (isValidTicket(collectionId, jsonTicket) && (jsonTicket.get("role").equals("OWNER")
+				|| jsonTicket.get("role").equals("CONTRIBUTOR") || jsonTicket.get("role").equals("READ"))) {
+			String url = SCDI_URL + "/api/v1/{userName}/{collectionId}/{objectName}";
+			if (metadata != null) {
+				url += "?metadata";
+			}
+			try {
+				GetRequest req = Unirest.get(url).routeParam("userName", SCDI_USER)
+						.routeParam("collectionId", collectionId)
+						.routeParam("objectName", getObjectName(objectName, request)).header("apikey", SCDI_API)
+						.header("HOST", "scdi-api.philinelabs.net").header("Cache-Control", "no-cache");
+				if (metadata != null) {
+					HttpResponse<String> res = req.asString();
+					JSONParser parser = new JSONParser();
+					JSONObject json = (JSONObject) parser.parse(res.getBody());
+					json.remove("location");
+					json.remove("bucket");
+					return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON_UTF8).body(json);
+				} else {
+					HttpResponse<InputStream> res = req.asBinary();
+					byte[] data = IOUtils.toByteArray(res.getBody());
+					String contentType = new Tika().detect(data);
+					if (contentType.equalsIgnoreCase("video/quicktime")) {
+						contentType = "video/mp4";
+					}
+					return ResponseEntity.ok().header(HttpHeaders.CONTENT_TYPE, contentType).body(data);
+				}
+
+			} catch (UnirestException | IOException | ParseException e) {
+				e.printStackTrace();
+			}
+		}
+		return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+	}
+
+	@PutMapping(value = "/{collectionId}/objects/{objectName}/**")
 	public ResponseEntity<Object> uploadSingleFile(@PathVariable String collectionId,
-			@RequestHeader(value = "Authorization") String ticket,
-			@RequestHeader(value = "Content-MD5") String md5, 
-			@PathVariable String objectName,
-			InputStream dataStream) {
+			@RequestHeader(value = "Authorization") String ticket, @RequestHeader(value = "Content-MD5") String md5,
+			Integer partNumber, @PathVariable String objectName, InputStream dataStream, HttpServletRequest request) {
 		JSONObject jsonTicket = decrypt(ticket);
 		if (jsonTicket == null) {
 			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 		}
 		if (isValidTicket(collectionId, jsonTicket)
-				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))){
+				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))) {
 			try {
 				byte[] targetArray = ByteStreams.toByteArray(dataStream);
-				HttpResponse<String> response = Unirest
-						.put(SCDI_URL+"/api/v1/{userName}/{collectionId}/{objectName}")
-						.routeParam("userName", SCDI_USER).routeParam("collectionId", collectionId).routeParam("objectName", objectName)
-						.header("apikey", SCDI_API)
-						.header("Content-MD5", md5)
-						.header("HOST", "scdi-api.philinelabs.net").header("Cache-Control", "no-cache").body(targetArray)
-						.asString();
-				if(response.getStatus()==200) {
+				String url = SCDI_URL + "/api/v1/{userName}/{collectionId}/{objectName}";
+				if (partNumber != null) {
+					url += "?partNumber=" + partNumber;
+				}
+				HttpResponse<String> response = Unirest.put(url).routeParam("userName", SCDI_USER)
+						.routeParam("collectionId", collectionId)
+						.routeParam("objectName", getObjectName(objectName, request)).header("apikey", SCDI_API)
+						.header("Content-MD5", md5).header("HOST", "scdi-api.philinelabs.net")
+						.header("Cache-Control", "no-cache").body(targetArray).asString();
+				if (response.getStatus() == 200) {
 					sendToMeter((String) jsonTicket.getOrDefault("userType", ""), (String) jsonTicket.get("userId"),
 							collectionId, "write", 1, targetArray.length);
-					return new ResponseEntity<Object>(HttpStatus.OK);					
+					return new ResponseEntity<Object>(HttpStatus.OK);
 				}
-				return new ResponseEntity<Object>(response.getBody(),HttpStatus.OK);
+				return new ResponseEntity<Object>(response.getBody(), HttpStatus.OK);
 			} catch (IOException | UnirestException e) {
+			}
+		}
+		return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
+	}
+
+	@PostMapping(value = "/{collectionId}/objects/{objectName}/**")
+	public ResponseEntity<Object> createUploadFile(@PathVariable String collectionId,
+			@RequestHeader(value = "Authorization") String ticket, @PathVariable String objectName, String complete,
+			@RequestHeader(value = "Content-MD5", defaultValue = "") String md5,
+			@RequestHeader(value = "Content-Length", defaultValue = "") String contentLegth,
+			HttpServletRequest request) {
+		JSONObject jsonTicket = decrypt(ticket);
+		if (jsonTicket == null) {
+			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
+		}
+		if (isValidTicket(collectionId, jsonTicket)
+				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))) {
+			try {
+				String url = SCDI_URL + "/api/v1/{userName}/{collectionId}/{objectName}?";
+				if (complete != null) {
+					url += "complete";
+				} else {
+					url += "create";
+				}
+				HttpRequestWithBody req = Unirest.post(url).routeParam("userName", SCDI_USER)
+						.routeParam("collectionId", collectionId)
+						.routeParam("objectName", getObjectName(objectName, request)).header("apikey", SCDI_API)
+						.header("HOST", "scdi-api.philinelabs.net").header("Cache-Control", "no-cache");
+				HttpResponse<String> response = req.asString();
+				if (complete != null) {
+					req = req.header("Content-Length", contentLegth).header("Content-MD5", md5);
+				}
+				if (response.getStatus() == 200) {
+					return new ResponseEntity<Object>(HttpStatus.OK);
+				}
+				return new ResponseEntity<Object>(url + " | " + response.getBody(), HttpStatus.OK);
+			} catch (UnirestException e) {
+				e.printStackTrace();
+			}
+		}
+		return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
+	}
+
+	@DeleteMapping(value = "/{collectionId}/objects/{objectName}/**")
+	public ResponseEntity<Object> deleteUploadedFile(@PathVariable String collectionId,
+			@RequestHeader(value = "Authorization") String ticket, @PathVariable String objectName, Integer partNumber,
+			HttpServletRequest request) {
+		JSONObject jsonTicket = decrypt(ticket);
+		if (jsonTicket == null) {
+			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
+		}
+		if (isValidTicket(collectionId, jsonTicket)
+				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))) {
+			try {
+				String url = SCDI_URL + "/api/v1/{userName}/{collectionId}/{objectName}";
+				if (partNumber != null) {
+					url += "?partNumber=" + partNumber;
+				}
+				HttpRequestWithBody req = Unirest.delete(url).routeParam("userName", SCDI_USER)
+						.routeParam("collectionId", collectionId)
+						.routeParam("objectName", getObjectName(objectName, request)).header("apikey", SCDI_API)
+						.header("HOST", "scdi-api.philinelabs.net").header("Cache-Control", "no-cache");
+				HttpResponse<String> response = req.asString();
+				if (response.getStatus() == 200) {
+					return new ResponseEntity<Object>(HttpStatus.OK);
+				}
+			} catch (UnirestException e) {
+				e.printStackTrace();
 			}
 		}
 		return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
@@ -671,21 +813,35 @@ public class CollectionController {
 		return reData;
 	}
 
-	private List<JSONObject> retrieveJsonData(String base64query, CollectionModel collection) {
+	private List<JSONObject> retrieveJsonData(Map<String,Object> allQuery, CollectionModel collection) {
 		String collectionId = collection.getCollectionId();
-		String query;
-		if (base64query == null) {
-			JSONObject limit = new JSONObject();
-			limit.put("limit", 1000);
-			query = limit.toJSONString();
-		} else {
-			query = new String(Base64.getDecoder().decode(base64query));
+		JSONObject jsonQuery = new JSONObject();
+		String queryString;
+		String fromEpoch = (String)allQuery.getOrDefault("fromEpoch", null);
+		String toEpoch =  (String)allQuery.getOrDefault("toEpoch", null);
+		String limit = (String)allQuery.getOrDefault("limit", null);
+		if (allQuery.getOrDefault("query", null) == null) {
+			if(fromEpoch != null) {
+				jsonQuery.put("fromEpoch", Long.valueOf(fromEpoch));
+			}
+			if(toEpoch != null) {
+				jsonQuery.put("toEpoch", Long.valueOf(toEpoch));
+			}
+			if(limit != null) {
+				jsonQuery.put("limit", Integer.valueOf(limit));
+			}
+			else {
+				jsonQuery.put("limit", 1000);
+			}
+			queryString = jsonQuery.toJSONString();
+		} else {	
+			queryString = new String(Base64.getDecoder().decode((String)allQuery.get("query")));
 		}
 		try {
 			HttpResponse<String> response = Unirest.post(SCDI_URL + "/api/v1/{userName}/{collectionId}?query")
 					.routeParam("userName", SCDI_USER).routeParam("collectionId", collectionId)
 					.header("apikey", SCDI_API).header("Content-Type", "application/json")
-					.header("Cache-Control", "no-cache").body(query).asString();
+					.header("Cache-Control", "no-cache").body(queryString).asString();
 			JSONParser parser = new JSONParser();
 			List<JSONObject> jsonArray = (List<JSONObject>) parser.parse(new String(response.getBody()));
 			if (collection.getEncryptionLevel() == 2) {
@@ -778,5 +934,21 @@ public class CollectionController {
 			}
 		}
 		return reqBody;
+	}
+
+	private String getObjectName(String baseName, HttpServletRequest request) {
+		final String path = request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE).toString();
+		final String bestMatchingPattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)
+				.toString();
+
+		String arguments = new AntPathMatcher().extractPathWithinPattern(bestMatchingPattern, path);
+
+		String moduleName;
+		if (null != arguments && !arguments.isEmpty()) {
+			moduleName = baseName + '/' + arguments;
+		} else {
+			moduleName = baseName;
+		}
+		return moduleName;
 	}
 }
