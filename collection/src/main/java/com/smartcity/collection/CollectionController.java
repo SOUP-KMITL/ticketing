@@ -8,8 +8,8 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -113,9 +113,7 @@ public class CollectionController {
 
 	@GetMapping("/healthz")
 	public ResponseEntity<Object> healthz() {
-		char[] chars = new char[1000000];
-		Arrays.fill(chars, 'f');
-		return new ResponseEntity<Object>(new String(chars),HttpStatus.OK);
+		return new ResponseEntity<Object>(HttpStatus.OK);
 	}
 
 	@GetMapping("")
@@ -375,7 +373,8 @@ public class CollectionController {
 
 	@GetMapping("/{collectionId}")
 	public ResponseEntity<Object> getCollection(@PathVariable String collectionId,
-			@RequestHeader(value = "Authorization") String ticket, @RequestParam Map<String, Object> allRequestParams) {
+			@RequestHeader(value = "Authorization") String ticket, String[] where, String[] aggregate,
+			@RequestParam Map<String, Object> allRequestParams) {
 		JSONObject jsonTicket = decrypt(ticket);
 		if (jsonTicket != null) {
 			String targetId = (String) jsonTicket.getOrDefault("targetId", jsonTicket.getOrDefault("collectionId", ""));
@@ -388,7 +387,7 @@ public class CollectionController {
 						if (!collection.getType().equalsIgnoreCase("keyvalue")) {
 							Query q = new Query();
 							q.fields().exclude("_id");
-							List<JSONObject> res = retrieveJsonData(allRequestParams, collection);
+							List<JSONObject> res = retrieveJsonData(where, aggregate, allRequestParams, collection);
 							sendToMeter((String) jsonTicket.getOrDefault("userType", ""),
 									(String) jsonTicket.get("userId"), targetId, "read", res.size(),
 									res.toString().length());
@@ -813,30 +812,63 @@ public class CollectionController {
 		return reData;
 	}
 
-	private List<JSONObject> retrieveJsonData(Map<String,Object> allQuery, CollectionModel collection) {
+	private List<JSONObject> retrieveJsonData(String[] where, String[] aggregate, Map<String, Object> allQuery,
+			CollectionModel collection) {
 		String collectionId = collection.getCollectionId();
 		JSONObject jsonQuery = new JSONObject();
 		String queryString;
-		String fromEpoch = (String)allQuery.getOrDefault("fromEpoch", null);
-		String toEpoch =  (String)allQuery.getOrDefault("toEpoch", null);
-		String limit = (String)allQuery.getOrDefault("limit", null);
+		String fromEpoch = (String) allQuery.getOrDefault("fromEpoch", null);
+		String toEpoch = (String) allQuery.getOrDefault("toEpoch", null);
+		String limit = (String) allQuery.getOrDefault("limit", null);
+		String last = (String) allQuery.getOrDefault("last", null);
+		Date now = new Date();
 		if (allQuery.getOrDefault("query", null) == null) {
-			if(fromEpoch != null) {
-				jsonQuery.put("fromEpoch", Long.valueOf(fromEpoch));
+			if (last == null) {
+				if (fromEpoch != null) {
+					jsonQuery.put("fromEpoch", Long.valueOf(fromEpoch));
+				}
+				if (toEpoch != null) {
+					jsonQuery.put("toEpoch", Long.valueOf(toEpoch));
+				}
+			} else {
+				jsonQuery.put("toEpoch", now.getTime());
+				jsonQuery.put("fromEpoch", now.getTime() - (Long.valueOf(last) * 1000));
 			}
-			if(toEpoch != null) {
-				jsonQuery.put("toEpoch", Long.valueOf(toEpoch));
-			}
-			if(limit != null) {
+			if (limit != null) {
 				jsonQuery.put("limit", Integer.valueOf(limit));
-			}
-			else {
+			} else {
 				jsonQuery.put("limit", 1000);
 			}
+			if (where != null) {
+				JSONArray whereJson = new JSONArray();
+				String[] tmpStringArray = new String[3];
+				for (int i = 0; i < where.length; i++) {
+					JSONObject tmpJson = new JSONObject();
+					tmpStringArray = where[i].split(",");
+					tmpJson.put("column", tmpStringArray[0]);
+					tmpJson.put("op", tmpStringArray[1]);
+					tmpJson.put("value", tmpStringArray[2]);
+					whereJson.add(tmpJson);
+				}
+				jsonQuery.put("where", whereJson);
+			}
+			if (aggregate != null) {
+				JSONArray aggregateJson = new JSONArray();
+				String[] tmpStringArray = new String[3];
+				for (int i = 0; i < where.length; i++) {
+					JSONObject tmpJson = new JSONObject();
+					tmpStringArray = where[i].split(",");
+					tmpJson.put("column", tmpStringArray[0]);
+					tmpJson.put("op", tmpStringArray[1]);
+					aggregateJson.add(tmpJson);
+				}
+				jsonQuery.put("aggregate", aggregateJson);
+			}
 			queryString = jsonQuery.toJSONString();
-		} else {	
-			queryString = new String(Base64.getDecoder().decode((String)allQuery.get("query")));
+		} else {
+			queryString = new String(Base64.getDecoder().decode((String) allQuery.get("query")));
 		}
+
 		try {
 			HttpResponse<String> response = Unirest.post(SCDI_URL + "/api/v1/{userName}/{collectionId}?query")
 					.routeParam("userName", SCDI_USER).routeParam("collectionId", collectionId)
@@ -856,6 +888,26 @@ public class CollectionController {
 				}
 				jsonArray = tmpList;
 			}
+			Comparator<JSONObject> comparator = new Comparator<JSONObject>() {
+
+				@Override
+				public int compare(JSONObject o1, JSONObject o2) {
+					if (o1.get("ts") == null) {
+						return -1;
+					}
+					if (o2.get("ts") == null) {
+						return 1;
+					}
+					if ((Long) o1.get("ts") > (Long) o2.get("ts")) {
+						return 1;
+					} else if ((Long) o1.get("ts") < (Long) o2.get("ts")) {
+						return -1;
+					} else {
+						return 0;
+					}
+				}
+			};
+			jsonArray.sort(comparator);
 			return jsonArray;
 		} catch (Exception e) {
 			e.printStackTrace();

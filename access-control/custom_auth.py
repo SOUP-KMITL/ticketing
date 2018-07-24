@@ -63,5 +63,4 @@ def requires_auth(func):
             return func(user_name, *args, **kwargs)
         except Exception:
             return auth_fail()
-
     return decorated

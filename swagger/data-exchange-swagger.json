@@ -303,6 +303,42 @@
             "required": false,
             "type": "string",
             "description": "base64({ \"fromEpoch\" : [from_epoch_timestamp], // Optional \"toEpoch\" : [to_epoch_timestamp], // Optional  \"limit\" : [limit], // Optional  \"where\" : [ { \"column\" : [column_name], \"op\" : [\"gt\" | \"lt\" | \"eq\" | \"gte\" | \"lte\" ] \"value : [value] }, ... ], // Optional \"aggregate\" : [ { \"column\" : [column_name], \"op\" : [\"min\" | \"max\" | \"avg\" | \"sum\" | \"count\"] }, ...] // Optional }) only work with encryptionLevel 0 or 1"
+          },
+          {
+            "name": "fromEpoch",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "description": "From epoch timestamp"
+          },
+          {
+            "name": "toEpoch",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "description": "To epoch timestamp"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "description": "limit",
+            "default": 1000
+          },
+          {
+            "name": "where",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "description": "{columnName},{[gt | lt | eq | gte | lte ]},{value}"
+          },
+          {
+            "name": "aggregate",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "description": "{columnName}, {[min | max | avg | sum | count]}"
           }
         ],
         "responses": {
@@ -507,6 +543,223 @@
         "security": [
           {
             "userToken": []
+          }
+        ]
+      }
+    },
+    "/collections/{collectionId}/objects": {
+      "get": {
+        "summary": "List object in collection",
+        "description": "List object in collection",
+        "tags": [
+          "collections"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collectionId",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "operation success",
+            "schema": {
+              "$ref": "#/definitions/ObjectMeta"
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorizated"
+          },
+          "404": {
+            "description": "Not  Found"
+          }
+        },
+        "security": [
+          {
+            "ticket": []
+          }
+        ]
+      }
+    },
+    "/collections/{collectionId}/objects/{objectName}": {
+      "get": {
+        "summary": "Get object",
+        "description": "Get object",
+        "tags": [
+          "collections"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collectionId",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "objectName",
+            "type": "string",
+            "required": true,
+            "description": "Can use the delimiter (/) to build your own hierarchy structure in the objectName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "operation success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorizated"
+          },
+          "404": {
+            "description": "Not  Found"
+          }
+        },
+        "security": [
+          {
+            "ticket": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Single file/part upload",
+        "description": "Single file/part upload",
+        "tags": [
+          "collections"
+        ],
+        "consumes": [
+          "binary"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collectionId",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "objectName",
+            "type": "string",
+            "required": true,
+            "description": "Can use the delimiter (/) to build your own hierarchy structure in the objectName"
+          },
+          {
+            "in": "header",
+            "name": "Content-MD5",
+            "type": "string",
+            "required": true,
+            "description": "MD5 of file/part"
+          },
+          {
+            "in": "header",
+            "name": "Content-Length",
+            "type": "string",
+            "required": true,
+            "description": "Content length of file/part"
+          },
+          {
+            "in": "query",
+            "name": "partNumber",
+            "type": "integer",
+            "required": false,
+            "description": "if you want to upload multipart object you need to use partNumber to specify each part(Can be 1-10,000 inclusive)"
+          },
+          {
+            "in": "body",
+            "name": "body",
+            "description": "binary data of file/part",
+            "schema": {
+              "format": "byte"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "operation success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorizated"
+          },
+          "404": {
+            "description": "Not  Found"
+          }
+        },
+        "security": [
+          {
+            "ticket": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create/Complete multipart upload",
+        "description": "Create/Complete multipart upload",
+        "tags": [
+          "collections"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "collectionId",
+            "type": "string",
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "objectName",
+            "type": "string",
+            "required": true,
+            "description": "Can use the delimiter (/) to build your own hierarchy structure in the objectName"
+          },
+          {
+            "in": "header",
+            "name": "Content-MD5",
+            "type": "string",
+            "required": false,
+            "description": "{md5 of {md5 of each part}}-3 when complete=true"
+          },
+          {
+            "in": "header",
+            "name": "Content-Length",
+            "type": "string",
+            "required": false,
+            "description": "Content length of all part when complete=true"
+          },
+          {
+            "in": "query",
+            "name": "complete",
+            "type": "boolean",
+            "required": false,
+            "description": "if you want to complete multipart upload set it to true"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "operation success"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorizated"
+          },
+          "404": {
+            "description": "Not  Found"
+          }
+        },
+        "security": [
+          {
+            "ticket": []
           }
         ]
       }
@@ -928,6 +1181,27 @@
         "field...": {
           "description": "data...",
           "example": "data..."
+        }
+      }
+    },
+    "ObjectMeta": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "example": "PACKED",
+          "type": "string"
+        },
+        "created": {
+          "example": 1521545756290,
+          "type": "number"
+        },
+        "name": {
+          "example": "random.txt",
+          "type": "string"
+        },
+        "modified": {
+          "example": 1521545756285,
+          "type": "number"
         }
       }
     },

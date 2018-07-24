@@ -151,18 +151,17 @@ services:
   #     restart_policy:
   #       condition: any
       
-  # swagger:
-  #   image: worker-01:5000/swagger
-  #   build: ./swagger
-  #   # image: swaggerapi/swagger-ui
-  #   networks: 
-  #     - default_test
-  #   environment:
-  #     - SWAGGER_JSON=/api/v1/doc/data-exchange/data-exchange-swagger.json
-  #     - BASE_URL=/api/v1/doc/data-exchange
-  #   deploy:
-  #     restart_policy:
-  #       # condition: any
+  swagger:
+    image: worker-01:5000/swagger
+    build: ./swagger
+    networks: 
+      - default_test
+    environment:
+      - SWAGGER_JSON=/api/v1/doc/data-exchange/data-exchange-swagger.json
+      - BASE_URL=/api/v1/doc/data-exchange
+    deploy:
+      restart_policy:
+        condition: any
 
 networks:
   default_test:
