@@ -1,5 +1,6 @@
 package com.smartcity.collection;
 
+import java.util.ArrayList;
 import java.util.Date;
 
 import org.json.simple.JSONArray;
@@ -30,12 +31,12 @@ public class CollectionModel {
 	private JSONObject example;
 	private Date createdAt;
 	private boolean isOpen;
-
+	private ArrayList<String> internalFields;
 	public CollectionModel() {
 	}
 
 	public CollectionModel(String id, String collectionName, String description, String thumbnailBase64, JSONObject endPoint,
-			String type,String category, JSONArray columns, int encryptionLevel, String owner, JSONObject example, boolean isOpen) {
+			String type,String category, JSONArray columns, int encryptionLevel, String owner, JSONObject example, boolean isOpen, ArrayList<String> internalField) {
 		this.setCollectionId(id);
 		this.collectionName = collectionName;
 		this.isOpen = isOpen;
@@ -53,6 +54,7 @@ public class CollectionModel {
 		this.owner = owner;
 		this.example = example;
 		this.setCreatedAt(new Date());
+		this.internalFields = internalField;
 	}
 
 	public String getCollectionId() {
@@ -165,5 +167,13 @@ public class CollectionModel {
 
 	public void setCategory(String category) {
 		this.category = category;
+	}
+
+	public ArrayList<String> getInternalFields() {
+		return internalFields;
+	}
+
+	public void setInternalFields(ArrayList<String> internalField) {
+		this.internalFields = internalField;
 	}
 }

@@ -27,6 +27,7 @@ import javax.net.ssl.SSLContext;
 import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.client.HttpRequestRetryHandler;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.protocol.HttpContext;
@@ -96,8 +97,14 @@ public class CollectionController {
 		} catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
 			e.printStackTrace();
 		}
+
+		RequestConfig.Builder requestBuilder = RequestConfig.custom();
+		requestBuilder = requestBuilder.setConnectTimeout(30000);
+		requestBuilder = requestBuilder.setConnectionRequestTimeout(30000);
+		requestBuilder = requestBuilder.setSocketTimeout(30000);
 		Unirest.setHttpClient(HttpClients.custom().setSSLContext(sslContext)
-				.setSSLHostnameVerifier(new NoopHostnameVerifier()).setRetryHandler(new HttpRequestRetryHandler() {
+				.setDefaultRequestConfig(requestBuilder.build()).setSSLHostnameVerifier(new NoopHostnameVerifier())
+				.setRetryHandler(new HttpRequestRetryHandler() {
 					@Override
 					public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
 						if (executionCount > 3) {
@@ -120,8 +127,10 @@ public class CollectionController {
 	public ResponseEntity<Object> getMeta(Pageable pageable, @RequestParam(defaultValue = "") String collectionName,
 			@RequestParam(defaultValue = "") String collectionId, @RequestParam(defaultValue = "") String type,
 			Boolean open, @RequestParam(defaultValue = "") String owner,
+			@RequestHeader(value = "Authorization", defaultValue = "") String authString,
 			@RequestParam(defaultValue = "") String keyword) {
-		if (!keyword.isEmpty()) {
+		String userName = getUserName(authString);
+		if (!keyword.isEmpty() && userName != null) {
 			return new ResponseEntity<Object>(
 					collectionRepository.findByCollectionNameLikeOrOwnerLikeOrDescriptionLikeOrCategoryLike(keyword,
 							keyword, keyword, keyword, pageable),
@@ -129,6 +138,9 @@ public class CollectionController {
 		}
 		if (open != null) {
 			open = !open;
+		}
+		if (userName == null) {
+			open = false;
 		}
 		return new ResponseEntity<Object>(
 				collectionRepository.findAllCustom(owner, type, collectionName, collectionId, open, pageable),
@@ -155,7 +167,7 @@ public class CollectionController {
 	@PutMapping("/{collectionId}/meta")
 	public ResponseEntity<Object> changeMeta(@PathVariable String collectionId, @RequestBody JSONObject json,
 			@RequestHeader(value = "Authorization") String userToken) {
-		org.json.JSONObject user = getUserByToken(userToken);
+		org.json.JSONObject user = getUser(userToken);
 		if (user == null) {
 			return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
 		}
@@ -163,13 +175,17 @@ public class CollectionController {
 			Query query = new Query(Criteria.where("collectionId").is(collectionId));
 			CollectionModel col = mongoTemplate.findOne(query, CollectionModel.class, METADATA);
 			if (col.getOwner().equalsIgnoreCase((user.getString("userName")))) {
-				col.setOpen((boolean) json.get("isOpen"));
+				col.setCollectionName((String) json.getOrDefault("collectionName", col.getCollectionName()));
+				col.setExample((JSONObject) json.getOrDefault("example", col.getExample()));
 				col.setDescription((String) json.getOrDefault("description", col.getDescription()));
-				HttpResponse<String> res = Unirest.put(AC_URL + "/collections/{collectionId}")
-						.header("Content-Type", "application/json").routeParam("collectionId", collectionId)
-						.body(json.toJSONString()).asString();
-				if (res.getStatus() != 200) {
-					return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+				if (json.getOrDefault("isOpen", null) != null) {
+					col.setOpen((boolean) json.getOrDefault("isOpen", col.isOpen()));
+					HttpResponse<String> res = Unirest.put(AC_URL + "/collections/{collectionId}")
+							.header("Content-Type", "application/json").routeParam("collectionId", collectionId)
+							.body(json.toJSONString()).asString();
+					if (res.getStatus() != 200) {
+						return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+					}
 				}
 				mongoTemplate.save(col, METADATA);
 				return new ResponseEntity<>(HttpStatus.OK);
@@ -229,7 +245,8 @@ public class CollectionController {
 	@SuppressWarnings({ "rawtypes" })
 	@PostMapping("")
 	public ResponseEntity<Object> createCollection(@RequestHeader(value = "Authorization") String userToken,
-			@RequestBody JSONObject json) {
+			@RequestBody JSONObject jsonBody, Boolean json) {
+		boolean isExists = false;
 		try {
 			HttpResponse<JsonNode> res = Unirest.get(USER_URL).queryString("token", userToken).asJson();
 			if (res.getBody().getArray().isNull(0)) {
@@ -237,7 +254,7 @@ public class CollectionController {
 			}
 			String userId = (String) res.getBody().getArray().getJSONObject(0).get("userId");
 			String userName = (String) res.getBody().getArray().getJSONObject(0).get("userName");
-			String collectionName = (String) json.getOrDefault("collectionName", null);
+			String collectionName = (String) jsonBody.getOrDefault("collectionName", null);
 			if (collectionName != null) {
 				if (collectionRepository.findByCollectionNameAndOwner(collectionName, userName) != null) {
 					return new ResponseEntity<>(HttpStatus.CONFLICT);
@@ -248,21 +265,27 @@ public class CollectionController {
 			JSONObject example = null;
 			JSONObject endPoint = null;
 			JSONArray columns = null;
+			ArrayList<String> interField = (ArrayList<String>) jsonBody.getOrDefault("interField", null);
 			String collectionId = "sc-" + UUID.randomUUID().toString();
-			int encryptionLevel = (int) json.getOrDefault("encryptionLevel", 0);
-			String type = (String) json.get("type");
+			if (jsonBody.getOrDefault("collectionId", null) != null) {
+				isExists = true;
+				collectionId = (String) jsonBody.getOrDefault("collectionId", null);
+			}
+			int encryptionLevel = (int) jsonBody.getOrDefault("encryptionLevel", 0);
+			String type = (String) jsonBody.get("type");
 			try {
 				if (!type.equalsIgnoreCase("remote")) {
 					endPoint = new JSONObject();
 					endPoint.put("type", "local");
 				} else {
-					endPoint = new JSONObject((Map) json.get("endPoint"));
+					endPoint = new JSONObject((Map) jsonBody.get("endPoint"));
 				}
-				example = new JSONObject((Map) json.getOrDefault("example", new JSONObject()));
+				example = new JSONObject((Map) jsonBody.getOrDefault("example", new JSONObject()));
 				if (((String) endPoint.get("type")).equalsIgnoreCase("local")) {
 					if (type.equalsIgnoreCase("timeseries") || type.equalsIgnoreCase("geotemporal")) {
 						columns = new JSONArray();
-						columns.addAll((ArrayList<Object>) json.get("columns"));
+						columns.addAll((ArrayList<Object>) jsonBody.get("columns"));
+
 					} else if (!type.equalsIgnoreCase("keyvalue")) {
 						return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 					}
@@ -274,8 +297,8 @@ public class CollectionController {
 				return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 			}
 			CollectionModel collection = new CollectionModel(collectionId, collectionName,
-					(String) json.get("description"), null, endPoint, type, (String) json.get("category"), columns,
-					encryptionLevel, userName, example, (boolean) json.get("isOpen"));
+					(String) jsonBody.get("description"), null, endPoint, type, (String) jsonBody.get("category"),
+					columns, encryptionLevel, userName, example, (boolean) jsonBody.get("isOpen"), interField);
 			if (((String) endPoint.get("type")).equalsIgnoreCase("local")) {
 				JSONObject scdiBody = new JSONObject();
 				scdiBody.put("type", collection.getType());
@@ -303,12 +326,14 @@ public class CollectionController {
 						scdiBody.put("columns", collection.getColumns());
 					}
 				}
-				HttpResponse<String> scdiRes = Unirest.post(SCDI_URL + "/api/v1/{userName}/{bucketName}?create")
-						.routeParam("userName", SCDI_USER).routeParam("bucketName", collection.getCollectionId())
-						.header("Content-Type", "application/json").header("APIKEY", SCDI_API)
-						.body(scdiBody.toJSONString()).asString();
-				if (scdiRes.getStatus() != 200) {
-					return new ResponseEntity<>(collectionId, HttpStatus.BAD_REQUEST);
+				if (!isExists) {
+					HttpResponse<String> scdiRes = Unirest.post(SCDI_URL + "/api/v1/{userName}/{bucketName}?create")
+							.routeParam("userName", SCDI_USER).routeParam("bucketName", collection.getCollectionId())
+							.header("Content-Type", "application/json").header("APIKEY", SCDI_API)
+							.body(scdiBody.toJSONString()).asString();
+					if (scdiRes.getStatus() != 200) {
+						return new ResponseEntity<>(collectionId, HttpStatus.BAD_REQUEST);
+					}
 				}
 			}
 			JSONObject body = new JSONObject();
@@ -323,7 +348,16 @@ public class CollectionController {
 			}
 			mongoTemplate.insert(collection, METADATA);
 			mongoTemplate.createCollection(collectionId);
-			return new ResponseEntity<Object>(collection.getCollectionId(), HttpStatus.CREATED);
+			if (json == null) {
+				json = false;
+			}
+			if (json) {
+				JSONObject resJson = new JSONObject();
+				resJson.put("result", collection.getCollectionId());
+				return new ResponseEntity<Object>(resJson, HttpStatus.CREATED);
+			} else {
+				return new ResponseEntity<Object>(collection.getCollectionId(), HttpStatus.CREATED);
+			}
 		} catch (UnirestException e1) {
 			e1.printStackTrace();
 		} catch (JSONException e) {
@@ -337,7 +371,7 @@ public class CollectionController {
 	public ResponseEntity<Object> deleteCollection(@PathVariable String collectionId,
 			@RequestHeader(value = "Authorization") String userToken) {
 		try {
-			org.json.JSONObject json = getUserByToken(userToken);
+			org.json.JSONObject json = getUser(userToken);
 			String userId = json.getString("userId");
 			HttpResponse<String> res_ac = Unirest.get(AC_URL).queryString("collectionId", collectionId)
 					.queryString("userId", userId).asString();
@@ -346,7 +380,7 @@ public class CollectionController {
 				HttpResponse<String> scdiRes = Unirest.delete(SCDI_URL + "/api/v1/{userName}/{bucketName}?delete")
 						.routeParam("userName", SCDI_USER).routeParam("bucketName", collectionId)
 						.header("apikey", SCDI_API).asString();
-				if (scdiRes.getStatus() != 200) {
+				if (scdiRes.getStatus() != 200 && scdiRes.getStatus() != 404) {
 					return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 				}
 				mongoTemplate.findAndRemove(new Query(Criteria.where("collectionId").is(collectionId)),
@@ -375,6 +409,7 @@ public class CollectionController {
 	public ResponseEntity<Object> getCollection(@PathVariable String collectionId,
 			@RequestHeader(value = "Authorization") String ticket, String[] where, String[] aggregate,
 			@RequestParam Map<String, Object> allRequestParams) {
+		long startFunc = System.currentTimeMillis();
 		JSONObject jsonTicket = decrypt(ticket);
 		if (jsonTicket != null) {
 			String targetId = (String) jsonTicket.getOrDefault("targetId", jsonTicket.getOrDefault("collectionId", ""));
@@ -388,9 +423,21 @@ public class CollectionController {
 							Query q = new Query();
 							q.fields().exclude("_id");
 							List<JSONObject> res = retrieveJsonData(where, aggregate, allRequestParams, collection);
+							if (res == null) {
+								return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+							}
+							ArrayList<String> internalFields = collection.getInternalFields();
+							if (internalFields != null && ((String) jsonTicket.get("role")).equalsIgnoreCase("READ")) {
+								for (JSONObject jsonObject : res) {
+									for (String field : internalFields) {
+										jsonObject.remove(field);
+									}
+								}
+							}
 							sendToMeter((String) jsonTicket.getOrDefault("userType", ""),
 									(String) jsonTicket.get("userId"), targetId, "read", res.size(),
 									res.toString().length());
+
 							return new ResponseEntity<>(res, HttpStatus.OK);
 						} else {
 							try {
@@ -465,8 +512,7 @@ public class CollectionController {
 			return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 		}
 		if (isValidTicket(collectionId, jsonTicket)
-				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))
-				&& mongoTemplate.collectionExists(collectionId)) {
+				&& (jsonTicket.get("role").equals("OWNER") || jsonTicket.get("role").equals("CONTRIBUTOR"))) {
 			CollectionModel collection = mongoTemplate.findOne(
 					new Query(Criteria.where("collectionId").is(collectionId)), CollectionModel.class, METADATA);
 			if (collection.getType().equalsIgnoreCase("keyvalue")) {
@@ -587,10 +633,12 @@ public class CollectionController {
 				if (response.getStatus() == 200) {
 					sendToMeter((String) jsonTicket.getOrDefault("userType", ""), (String) jsonTicket.get("userId"),
 							collectionId, "write", 1, targetArray.length);
-					return new ResponseEntity<Object>(HttpStatus.OK);
+					return new ResponseEntity<Object>(HttpStatus.CREATED);
 				}
-				return new ResponseEntity<Object>(response.getBody(), HttpStatus.OK);
+				return new ResponseEntity<Object>(response.getBody(), HttpStatus.INTERNAL_SERVER_ERROR);
 			} catch (IOException | UnirestException e) {
+				e.printStackTrace();
+				return new ResponseEntity<Object>(HttpStatus.INTERNAL_SERVER_ERROR);
 			}
 		}
 		return new ResponseEntity<Object>(HttpStatus.BAD_REQUEST);
@@ -680,8 +728,8 @@ public class CollectionController {
 		body.put("record", record);
 		body.put("size", size);
 		try {
-			return Unirest.post(METER_URL).header("Content-Type", "application/json").body(body.toJSONString())
-					.asString();
+			return Unirest.post(METER_URL + "/collections").header("Content-Type", "application/json")
+					.body(body.toJSONString()).asString();
 		} catch (UnirestException e) {
 			e.printStackTrace();
 		}
@@ -772,13 +820,13 @@ public class CollectionController {
 					.routeParam("userName", SCDI_USER).routeParam("collectionId", collectionId)
 					.header("apikey", SCDI_API).header("Content-Type", "application/json")
 					.header("Cache-Control", "no-cache").body(arrayData.toJSONString()).asString();
+
 			if (response.getStatus() != 200) {
 				return false;
 			}
 		} catch (UnirestException e) {
 			return false;
 		}
-		mongoTemplate.insert(arrayData, collectionId);
 		return true;
 	}
 
@@ -870,10 +918,12 @@ public class CollectionController {
 		}
 
 		try {
+			long startMU = System.currentTimeMillis();
 			HttpResponse<String> response = Unirest.post(SCDI_URL + "/api/v1/{userName}/{collectionId}?query")
 					.routeParam("userName", SCDI_USER).routeParam("collectionId", collectionId)
 					.header("apikey", SCDI_API).header("Content-Type", "application/json")
 					.header("Cache-Control", "no-cache").body(queryString).asString();
+			long startParse = System.currentTimeMillis();
 			JSONParser parser = new JSONParser();
 			List<JSONObject> jsonArray = (List<JSONObject>) parser.parse(new String(response.getBody()));
 			if (collection.getEncryptionLevel() == 2) {
@@ -888,8 +938,8 @@ public class CollectionController {
 				}
 				jsonArray = tmpList;
 			}
+			long startSort = System.currentTimeMillis();
 			Comparator<JSONObject> comparator = new Comparator<JSONObject>() {
-
 				@Override
 				public int compare(JSONObject o1, JSONObject o2) {
 					if (o1.get("ts") == null) {
@@ -908,10 +958,24 @@ public class CollectionController {
 				}
 			};
 			jsonArray.sort(comparator);
+			ArrayList<String> columes = (ArrayList<String>) allQuery.getOrDefault("columes", null);
+			List<JSONObject> filtedArray = new ArrayList<JSONObject>();
+			if (columes != null) {
+				JSONObject tmp = new JSONObject();
+				for (JSONObject item : jsonArray) {
+					for (String colume : columes) {
+						tmp.put(colume, item.getOrDefault(colume, null));
+					}
+					tmp.put("ts", item.getOrDefault("ts", null));
+					filtedArray.add(tmp);
+					tmp.clear();
+				}
+				jsonArray = filtedArray;
+			}
 			return jsonArray;
 		} catch (Exception e) {
 			e.printStackTrace();
-			return mongoTemplate.findAll(JSONObject.class, collectionId);
+			return null;
 		}
 	}
 
@@ -954,17 +1018,17 @@ public class CollectionController {
 		return new String(textDecrypted);
 	}
 
-	private org.json.JSONObject getUserByToken(String userToken) {
+	private org.json.JSONObject getUser(String authString) {
 		try {
-			HttpResponse<JsonNode> res = Unirest.get(USER_URL).queryString("token", userToken).asJson();
+			HttpResponse<JsonNode> res = Unirest.get(USER_URL + "/login").header("Authorization", authString).asJson();
 			return res.getBody().getArray().getJSONObject(0);
 		} catch (UnirestException | JSONException e) {
 			return null;
 		}
 	}
 
-	private String getUserName(String userToken) {
-		org.json.JSONObject user = getUserByToken(userToken);
+	private String getUserName(String authString) {
+		org.json.JSONObject user = getUser(authString);
 		try {
 			return (String) user.get("userName");
 		} catch (Exception e) {

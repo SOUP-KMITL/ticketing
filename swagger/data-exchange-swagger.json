@@ -236,6 +236,13 @@
             "in": "query",
             "required": false,
             "type": "integer"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "type": "string",
+            "description": "Basic auth or user token for get private collection"
           }
         ],
         "responses": {
@@ -298,13 +305,6 @@
             "required": true
           },
           {
-            "name": "query",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "description": "base64({ \"fromEpoch\" : [from_epoch_timestamp], // Optional \"toEpoch\" : [to_epoch_timestamp], // Optional  \"limit\" : [limit], // Optional  \"where\" : [ { \"column\" : [column_name], \"op\" : [\"gt\" | \"lt\" | \"eq\" | \"gte\" | \"lte\" ] \"value : [value] }, ... ], // Optional \"aggregate\" : [ { \"column\" : [column_name], \"op\" : [\"min\" | \"max\" | \"avg\" | \"sum\" | \"count\"] }, ...] // Optional }) only work with encryptionLevel 0 or 1"
-          },
-          {
             "name": "fromEpoch",
             "in": "query",
             "required": false,
@@ -339,6 +339,16 @@
             "required": false,
             "type": "string",
             "description": "{columnName}, {[min | max | avg | sum | count]}"
+          },
+          {
+            "name": "columes",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "columeName"
           }
         ],
         "responses": {
@@ -1159,6 +1169,9 @@
     "Collection_update": {
       "type": "object",
       "properties": {
+        "collectionName": {
+          "type": "string"
+        },
         "description": {
           "type": "string"
         },

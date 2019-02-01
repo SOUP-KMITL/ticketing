@@ -57,7 +57,10 @@ public class TicketController {
 	}
 	@PostMapping("")
 	public ResponseEntity<Object> genTicket(@RequestHeader(value = "Authorization") String userToken,
-			@RequestBody JSONObject jsonBody) {
+			@RequestBody JSONObject jsonBody,Boolean json) {
+		if (json == null) {
+			json = false;
+		}
 		String type = "user";
 		String userId;
 		String targetId;
@@ -97,10 +100,14 @@ public class TicketController {
 				} catch (Exception e) {
 					ticketString = mapper.writeValueAsString(new TicketModel(type, userId, targetId, role));
 				}
-				return new ResponseEntity<Object>(
-						Base64.getUrlEncoder().encodeToString(
-								security.encrypt(ticketString.getBytes("utf-8")).toJSONString().getBytes("utf-8")),
-						HttpStatus.CREATED);
+				String encodeTicket = Base64.getUrlEncoder().encodeToString(
+						security.encrypt(ticketString.getBytes("utf-8")).toJSONString().getBytes("utf-8"));
+				JSONObject resJson = new JSONObject();
+				resJson.put("result", encodeTicket);
+				if(json) {
+					return new ResponseEntity<Object>(resJson,HttpStatus.CREATED);
+				}
+				return new ResponseEntity<Object>(encodeTicket,HttpStatus.CREATED);
 			}
 			return new ResponseEntity<Object>(HttpStatus.FORBIDDEN);
 

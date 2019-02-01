@@ -49,7 +49,7 @@ import com.mongodb.MongoClient;
 public class MeterController {
 	@Autowired
 	private MongoTemplate mongoTemplate = new MongoTemplate(
-			new SimpleMongoDbFactory(new MongoClient("mongo"), "MeterModel"));
+			new SimpleMongoDbFactory(new MongoClient("mongodb-service"), "MeterModel"));
 	private final String USER_URL = System.getenv("USER_URL");
 
 	MeterController() {
@@ -83,6 +83,16 @@ public class MeterController {
 					match(Criteria.where("userId").is(userId).and("timestamp").gt(new Date(timestamp))),
 					group("collectionId", "type").sum("record").as("record").sum("size").as("size"),
 					project("record", "size", "collectionId"), sort(Sort.Direction.DESC, "record"));
+			AggregationResults<MeterModel> groupResults = mongoTemplate.aggregate(agg, MeterModel.class,
+					MeterModel.class);
+			List<MeterModel> result = groupResults.getMappedResults();
+			return result;
+		}
+		if (aggregate && collectionId != null) {
+			Aggregation agg = newAggregation(
+					match(Criteria.where("collectionId").is(collectionId).and("timestamp").gt(new Date(timestamp))),
+					group("userId", "type").sum("record").as("record").sum("size").as("size"),
+					project("record", "size", "userId"), sort(Sort.Direction.DESC, "record"));
 			AggregationResults<MeterModel> groupResults = mongoTemplate.aggregate(agg, MeterModel.class,
 					MeterModel.class);
 			List<MeterModel> result = groupResults.getMappedResults();

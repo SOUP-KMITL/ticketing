@@ -1,16 +1,25 @@
-version: '3.3'
+version: '3.4'
 services: 
   user-service:
-    image: worker-01:5000/user-service
+    image: worker1:5000/user-service
     build: ./user
     networks: 
-      - default_test
+      - default
     extra_hosts:
-      - "mongodb-service:172.16.0.6"
+      - "mongodb-service:192.168.2.199"
     env_file: 
       - ./app.env
+    ports:
+      - '9000:80'
     dns: 8.8.8.8
     deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2000M
+        reservations:
+          cpus: '0.25'
+          memory: 1000M
       replicas: 2
       update_config:
         parallelism: 1
@@ -18,16 +27,25 @@ services:
         condition: any
 
   meter-service:
-    image: worker-01:5000/meter-service
+    image: worker1:5000/meter-service
     build: ./meter
     networks: 
-      - default_test
+      - default
     extra_hosts:
-      - "mongo-service:172.16.0.6"
+      - "mongodb-service:192.168.2.199"
     env_file: 
       - ./app.env
+    ports:
+      - '9001:80'
     dns: 8.8.8.8
     deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2000M
+        reservations:
+          cpus: '0.25'
+          memory: 1000M
       replicas: 2
       update_config:
         parallelism: 1
@@ -35,135 +53,99 @@ services:
         condition: any
 
   collection-service:
-    image: worker-01:5000/collection-service
+    image: worker1:5000/collection-service
     build: ./collection
     networks: 
-      - default_test
+      - default
     extra_hosts:
-      - "mongodb-service:172.16.0.6"
+      - "mongodb-service:192.168.2.199"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
+    ports:
+      - '9002:80'
     deploy:
-      replicas: 2
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2000M
+        reservations:
+          cpus: '0.25'
+          memory: 1000M
+      replicas: 3
       update_config:
         parallelism: 1
       restart_policy:
         condition: any
 
   access-control-service:
-    image: worker-01:5000/access-control-service
-    build: ./access-control
+    image: worker1:5000/access-control-service
+    build:
+      context: ./access-control
+      network: host
     networks: 
-      - default_test
-    ports:
-      - '8083:80'
+      - default
     extra_hosts:
-      - "mongodb-service:172.16.0.6"
+      - "mongodb-service:192.168.2.199"
+      - "neo4j-server:192.168.2.200"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
+    ports:
+      - '9003:80'
     deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2000M
+        reservations:
+          cpus: '0.25'
+          memory: 1000M
       replicas: 2
-      # mode: global
       update_config:
         parallelism: 1
       restart_policy:
         condition: any
-        
+                
   ticket-service:
-    image: worker-01:5000/ticket-service
+    image: worker1:5000/ticket-service
     build: ./ticket
     networks: 
-      - default_test
+      - default
     extra_hosts:
-      - "mongodb-service:172.16.0.6"
+      - "mongodb-service:192.168.2.199"
     env_file: 
       - ./app.env
     dns: 8.8.8.8
+    ports:
+      - '9004:80'
     deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2000M
+        reservations:
+          cpus: '0.25'
+          memory: 1000M
       replicas: 2
       update_config:
         parallelism: 1
       restart_policy:
         condition: any
-  # kong:
-  #   image: worker-01:5000/kong
-  #   build: ./kong
-  #   networks: 
-  #     - default_test
-  #   depends_on:
-  #     - kong-database
-  #   ports:
-  #     - '80:80'
-  #     - '443:443'
-  #   environment:
-  #     - KONG_DATABASE=postgres
-  #     - KONG_PG_HOST=kong-database
-  #     - KONG_ADMIN_LISTEN=0.0.0.0:8001
-  #     - KONG_ADMIN_LISTEN_SSL=0.0.0.0:8444
-  #   deploy:
-  #     replicas: 2
-  #     update_config:
-  #       parallelism: 1
-  #     restart_policy:
-  #       condition: any
-  #   volumes: 
-  #     - '/home/centos/glusterdata/cert:/cert'
-
-  # kong-dashboard:
-  #   image: 'pgbi/kong-dashboard:v2'
-  #   depends_on:
-  #     - kong
-  #   networks: 
-  #     - default_test 
-  #   ports:
-  #     - '8081:8080'
-  #   deploy:
-  #     restart_policy:
-  #       condition: any
-
-  # neo4j:
-  #   image: neo4j
-  #   environment:
-  #     - NEO4J_AUTH=none
-  #   networks: 
-  #     - default_test
-  #   volumes:
-  #     - '/home/centos/glusterdata/neo4j/data:/data'
-  #   ports:
-  #     - "7474:7474"
-  #     - "7687:7687"
-  #   deploy:
-  #     restart_policy:
-  #       condition: any
-
-  # kong-database:
-  #   image: 'postgres:9.4'
-  #   environment:
-  #     - POSTGRES_USER=kong
-  #     - POSTGRES_DB=kong
-  #   networks: 
-  #     - default_test
-  #   volumes:
-  #     - '/home/centos/glusterdata/kong-data:/var/lib/postgresql/data'
-  #   deploy:
-  #     restart_policy:
-  #       condition: any
-      
   swagger:
-    image: worker-01:5000/swagger
+    image: worker1:5000/swagger
     build: ./swagger
     networks: 
-      - default_test
+      - default
+    ports:
+      - '9005:80'
     environment:
-      - SWAGGER_JSON=/api/v1/doc/data-exchange/data-exchange-swagger.json
-      - BASE_URL=/api/v1/doc/data-exchange
+      - SWAGGER_JSON=/data-exchange/swagger.json
+      # - BASE_URL=/api/v1/docs/data-exchange
     deploy:
       restart_policy:
         condition: any
 
 networks:
-  default_test:
+  default:
     attachable: true
-    # driver: store/weaveworks/net-plugin:latest_release

@@ -1,0 +1,2 @@
+ssh -L 7474:localhost:7474 dga
+ssh -L 7474:localhost:7474 neo4j

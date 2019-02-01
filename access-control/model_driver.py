@@ -5,8 +5,7 @@ from neomodel import (BooleanProperty, RelationshipFrom, RelationshipTo,
                       StringProperty, StructuredNode, StructuredRel, config,
                       db)
 
-# config.DATABASE_URL = 'bolt://none:none@neo4j-neo4j-core-0.neo4j-neo4j.test.svc.cluster.local:7687'
-config.DATABASE_URL = 'bolt://none:none@ticketing_neo4j:7687'
+config.DATABASE_URL = 'bolt://neo4j:CEkmitl702*1234@neo4j-server:7687'
 
 
 class Role(StructuredRel):
@@ -170,6 +169,43 @@ def get_service_collection_role(service_uid, collection_uid):
     except Exception:
         return False
 
+def get_all_user_role_collection(uid):
+    try:
+        is_open = db.cypher_query("MATCH (c:Collection) where c.uid = {uid} return c.open as open",{'uid': uid})
+        if(is_open[0][0][0]==True):
+            results = db.cypher_query(
+                "MATCH (u:User)-[r:Role]->(c:Collection) where c.uid = {uid} and r.type in ['contributor','owner'] with {user_name:u.name,role:r.type} as Tmp return collect(Tmp);",
+                {'uid': uid})
+        else:
+            results = db.cypher_query(
+                "MATCH (u:User)-[r:Role]->(c:Collection) where c.uid = {uid} with {user_name:u.name,role:r.type} as Tmp return collect(Tmp);",
+                {'uid': uid})
+        if len(results) > 0:
+            """ return user_name|role.type"""
+            return results[0][0][0]
+        else:
+            return []
+    except Exception :
+        return []
+
+def get_all_user_role_service(uid):
+    try:
+        is_open = db.cypher_query("MATCH (c:Service) where c.uid = {uid} return c.open as open",{'uid': uid})
+        if(is_open[0][0][0]==True):
+            results = db.cypher_query(
+                "MATCH (u:User)-[r:Role]->(c:Service) where c.uid = {uid} and r.type in ['contributor','owner'] with {user_name:u.name,role:r.type} as Tmp return collect(Tmp);",
+                {'uid': uid})
+        else:
+            results = db.cypher_query(
+                "MATCH (u:User)-[r:Role]->(c:Service) where c.uid = {uid} with {user_name:u.name,role:r.type} as Tmp return collect(Tmp);",
+                {'uid': uid})
+        if len(results) > 0:
+            """ return user_name|role.type"""
+            return results[0][0][0]
+        else:
+            return []
+    except Exception :
+        return []
 
 def get_all_service(user_name, role_type="owner"):
     role_type = role_type.lower()

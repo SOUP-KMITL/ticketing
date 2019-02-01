@@ -1,9 +1,12 @@
 FROM swaggerapi/swagger-ui
-COPY data-exchange-swagger.json /api/v1/doc/data-exchange/data-exchange-swagger.json
-RUN sed -i "s/8080/80/"  /etc/nginx/nginx.conf    && \
-    sed -i '/presets: \[/ i \\t validatorUrl: null,' /usr/share/nginx/html/index.html && \
-    sed -i 's/Swagger UI/Data Exchange Swagger/g' /usr/share/nginx/html/index.html
-# sed -i 's/root/alias/g' /etc/nginx/nginx.conf  && \
-# sed -i 's|\./$(basename $SWAGGER_JSON)|$SWAGGER_JSON|g' /usr/share/nginx/docker-run.sh 
+COPY data-exchange-swagger.json /data-exchange/swagger.json
+COPY index.html /usr/share/nginx/html/index.html
+# COPY data-exchange-swagger.json /docs/data-exchange-swagger.json
+RUN sed -i 's/root/alias/g' /etc/nginx/nginx.conf && \
+    # sed -i 's|\./$(basename $SWAGGER_JSON)|$SWAGGER_JSON|g' /usr/share/nginx/docker-run.sh && \
+    sed -i "s/8080/80/"  /etc/nginx/nginx.conf && \
+    mkdir /tmp/data-exchange && \
+    cp -r /usr/share/nginx/html/* /tmp/data-exchange && \
+    mv  /tmp/data-exchange /usr/share/nginx/html/
 
 

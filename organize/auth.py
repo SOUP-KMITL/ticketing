@@ -58,9 +58,7 @@ def requires_auth(func):
         try:
             is_valid, user_name = check_auth(
                 request.headers.get('authorization', None))
-            if not is_valid:
-                return auth_fail()
-            return func(user_name, *args, **kwargs)
         except Exception:
             return auth_fail()
+        return func(user_name, *args, **kwargs)
     return decorated

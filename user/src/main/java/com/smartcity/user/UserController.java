@@ -69,14 +69,12 @@ public class UserController {
 	}
 
 	@GetMapping("/")
-	public @ResponseBody List<UserModel> getAllUser(String token, String userId,String userName) {
+	public @ResponseBody List<UserModel> getAllUser(String token, String userId, String userName) {
 		if (token != null) {
 			return repository.findByAccessToken(token);
-		}
-		else if (userId != null) {
+		} else if (userId != null) {
 			return repository.findByUserId(userId);
-		}
-		else if (userName != null) {
+		} else if (userName != null) {
 			return repository.findByuserName(userName);
 		}
 		return repository.findAll();
@@ -134,9 +132,13 @@ public class UserController {
 		return repository.findByuserName(userName);
 	}
 
+	@SuppressWarnings("unchecked")
 	@PutMapping("/{userName}/token")
 	public ResponseEntity<Object> generateToken(@PathVariable(value = "userName") String userName,
-			@RequestHeader String authorization) {
+			@RequestHeader String authorization,Boolean json) {
+		if (json == null) {
+			json = false;
+		}
 		UserModel user = null;
 		try {
 			user = repository.findByuserName(userName).get(0);
@@ -147,16 +149,30 @@ public class UserController {
 		if (isValid(authorization, user)) {
 			user.setAccessToken(user.generateAccessToken());
 			repository.save(user);
+			if (json) {
+				JSONObject resJson = new JSONObject();
+				resJson.put("result", user.getAccessToken());
+				return new ResponseEntity<Object>(resJson, HttpStatus.OK);
+			}
 			return new ResponseEntity<Object>(user.getAccessToken(), HttpStatus.OK);
 		}
 		return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
 	}
 
+	@SuppressWarnings("unchecked")
 	@GetMapping("/{userName}/token")
 	public ResponseEntity<Object> getToken(@PathVariable(value = "userName") String userName,
-			@RequestHeader String authorization) {
+			@RequestHeader String authorization, Boolean json) {
+		if (json == null) {
+			json = false;
+		}
 		UserModel user = repository.findByuserName(userName).get(0);
 		if (isValid(authorization, user)) {
+			if (json) {
+				JSONObject resJson = new JSONObject();
+				resJson.put("result", user.getAccessToken());
+				return new ResponseEntity<Object>(resJson, HttpStatus.OK);
+			}
 			return new ResponseEntity<Object>(user.getAccessToken(), HttpStatus.OK);
 		}
 		return new ResponseEntity<Object>(HttpStatus.UNAUTHORIZED);
@@ -222,10 +238,12 @@ public class UserController {
 			user.setFirstName(firstName);
 		}
 		if (!lastName.isEmpty()) {
-			user.setLastName(lastName);;
+			user.setLastName(lastName);
+			;
 		}
 		if (!password.isEmpty()) {
-			user.setPassword(password);;
+			user.setPassword(password);
+			;
 		}
 		repository.save(user);
 		return new ResponseEntity<Object>(HttpStatus.OK);
@@ -235,7 +253,7 @@ public class UserController {
 	public ResponseEntity<Object> deleteUser(@PathVariable String userName,
 			@RequestHeader(value = "Authorization") String authorization) {
 		UserModel user = (UserModel) login(authorization).getBody();
-		if(user==null) {
+		if (user == null) {
 			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 		}
 		if (user.getUserName().equalsIgnoreCase(userName)) {
@@ -252,9 +270,9 @@ public class UserController {
 	}
 
 	private boolean isValid(String basicAuth, UserModel user) {
-		String[] userPass = new String(Base64.getDecoder().decode(basicAuth.split(" ")[1])).split(":");
-		String pass = userPass[1];
 		try {
+			String[] userPass = new String(Base64.getDecoder().decode(basicAuth.split(" ")[1])).split(":");
+			String pass = userPass[1];
 			if (user.getUserName().equals(userPass[0]) && UpdatableBCrypt.verifyHash(pass, user.getPassword())) {
 				return true;
 			}
